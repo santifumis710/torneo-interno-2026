@@ -2,8 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { put } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { login, logout, requireAuth } from "@/lib/auth";
+import { normalizeLogo } from "@/lib/logo";
 
 function refresh() {
   revalidatePath("/");
@@ -207,5 +209,56 @@ export async function deleteMatch(formData: FormData) {
   if (!id) return;
   const sql = db();
   await sql`DELETE FROM matches WHERE id = ${id}`;
+  refresh();
+}
+
+/* ---------- Logos (Vercel Blob + normalización) ---------- */
+
+async function processAndUpload(file: File, prefix: string): Promise<string> {
+  const raw = Buffer.from(await file.arrayBuffer());
+  const png = await normalizeLogo(raw);
+  const { url } = await put(`logos/${prefix}-${Date.now()}.png`, png, {
+    access: "public",
+    contentType: "image/png",
+  });
+  return url;
+}
+
+export async function uploadTeamLogo(formData: FormData) {
+  await requireAuth();
+  const id = Number(formData.get("id"));
+  const file = formData.get("logo");
+  if (!id || !(file instanceof File) || file.size === 0) return;
+
+  const url = await processAndUpload(file, `team-${id}`);
+  const sql = db();
+  await sql`UPDATE teams SET logo_url = ${url} WHERE id = ${id}`;
+  refresh();
+}
+
+export async function removeTeamLogo(formData: FormData) {
+  await requireAuth();
+  const id = Number(formData.get("id"));
+  if (!id) return;
+  const sql = db();
+  await sql`UPDATE teams SET logo_url = NULL WHERE id = ${id}`;
+  refresh();
+}
+
+export async function uploadTournamentLogo(formData: FormData) {
+  await requireAuth();
+  const file = formData.get("logo");
+  if (!(file instanceof File) || file.size === 0) return;
+
+  const url = await processAndUpload(file, "tournament");
+  const sql = db();
+  await sql`UPDATE settings SET logo_url = ${url} WHERE id = 1`;
+  refresh();
+}
+
+export async function removeTournamentLogo() {
+  await requireAuth();
+  const sql = db();
+  await sql`UPDATE settings SET logo_url = NULL WHERE id = 1`;
   refresh();
 }

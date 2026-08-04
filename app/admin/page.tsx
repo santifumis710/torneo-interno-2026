@@ -16,6 +16,10 @@ import {
   createMatch,
   updateMatch,
   deleteMatch,
+  uploadTeamLogo,
+  removeTeamLogo,
+  uploadTournamentLogo,
+  removeTournamentLogo,
   logoutAction,
 } from "./actions";
 
@@ -62,6 +66,22 @@ export default async function AdminPage() {
             <button className="btn" type="submit">Guardar</button>
           </div>
         </form>
+
+        <div className="logo-row">
+          {settings.logo_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img className="logo-mini" src={settings.logo_url} alt="Logo del torneo" />
+          )}
+          <form action={uploadTournamentLogo} className="logo-row" style={{ flex: 1, marginTop: 0 }}>
+            <input type="file" name="logo" accept="image/*" required />
+            <button className="btn btn-xs" type="submit">Subir logo del torneo</button>
+          </form>
+          {settings.logo_url && (
+            <form action={removeTournamentLogo}>
+              <button className="btn-danger btn-xs" type="submit">Quitar</button>
+            </form>
+          )}
+        </div>
       </div>
 
       {/* Zonas y equipos */}
@@ -120,6 +140,25 @@ export default async function AdminPage() {
                         <input type="hidden" name="id" value={team.id} />
                         <button className="btn-danger" type="submit">Borrar</button>
                       </form>
+                    </div>
+
+                    {/* Logo del equipo */}
+                    <div className="logo-row">
+                      {team.logo_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img className="logo-mini" src={team.logo_url} alt={team.name} />
+                      )}
+                      <form action={uploadTeamLogo} className="logo-row" style={{ flex: 1, marginTop: 0 }}>
+                        <input type="hidden" name="id" value={team.id} />
+                        <input type="file" name="logo" accept="image/*" required />
+                        <button className="btn btn-xs" type="submit">Subir logo</button>
+                      </form>
+                      {team.logo_url && (
+                        <form action={removeTeamLogo}>
+                          <input type="hidden" name="id" value={team.id} />
+                          <button className="btn-danger btn-xs" type="submit">Quitar</button>
+                        </form>
+                      )}
                     </div>
 
                     {/* Jugadores del equipo */}
