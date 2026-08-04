@@ -2,7 +2,7 @@ import sharp from "sharp";
 
 const SIZE = 256; // lado del PNG cuadrado de salida
 const THRESHOLD = 42; // distancia de color para considerar "mismo fondo"
-const CORNER_AGREE = 55; // si las esquinas difieren más que esto, no es un fondo plano
+const BORDER_FLAT_RATIO = 0.7; // fracción del borde que debe ser del color de fondo para tratarlo como plano
 
 type Rgb = { r: number; g: number; b: number };
 
@@ -27,22 +27,38 @@ async function removeFlatBackground(input: Buffer): Promise<Buffer> {
     return { r: data[i], g: data[i + 1], b: data[i + 2] };
   };
 
-  const corners = [colorAt(0, 0), colorAt(w - 1, 0), colorAt(0, h - 1), colorAt(w - 1, h - 1)];
-  const cornerAlphas = [data[px(0, 0) + 3], data[px(w - 1, 0) + 3], data[px(0, h - 1) + 3], data[px(w - 1, h - 1) + 3]];
+  // Recorremos todo el borde (no solo las esquinas): así, aunque el escudo toque
+  // un borde o una esquina, seguimos detectando el fondo plano que lo rodea.
+  const border: { c: Rgb; a: number }[] = [];
+  for (let x = 0; x < w; x++) {
+    border.push({ c: colorAt(x, 0), a: data[px(x, 0) + 3] });
+    border.push({ c: colorAt(x, h - 1), a: data[px(x, h - 1) + 3] });
+  }
+  for (let y = 0; y < h; y++) {
+    border.push({ c: colorAt(0, y), a: data[px(0, y) + 3] });
+    border.push({ c: colorAt(w - 1, y), a: data[px(w - 1, y) + 3] });
+  }
 
-  // Si las esquinas ya son transparentes, no hay fondo que sacar.
-  if (cornerAlphas.every((a) => a < 32)) return input;
+  // Si el borde ya es mayormente transparente, no hay fondo que sacar.
+  if (border.every((p) => p.a < 32)) return input;
 
-  // Si las esquinas no concuerdan, no es un fondo plano: no tocamos nada.
-  let maxDiff = 0;
-  for (let i = 0; i < corners.length; i++)
-    for (let j = i + 1; j < corners.length; j++) maxDiff = Math.max(maxDiff, dist(corners[i], corners[j]));
-  if (maxDiff > CORNER_AGREE) return input;
+  // Color de fondo candidato: promedio del borde.
+  const avg: Rgb = {
+    r: Math.round(border.reduce((s, p) => s + p.c.r, 0) / border.length),
+    g: Math.round(border.reduce((s, p) => s + p.c.g, 0) / border.length),
+    b: Math.round(border.reduce((s, p) => s + p.c.b, 0) / border.length),
+  };
+  // Cuánto del borde es realmente de ese color: si no es plano, no tocamos nada.
+  const flat = border.filter((p) => dist(p.c, avg) <= THRESHOLD).length / border.length;
+  if (flat < BORDER_FLAT_RATIO) return input;
 
+  // Recalculamos el color solo con los píxeles "de fondo" (descartando los del
+  // escudo que puedan tocar el borde), para no sesgar el promedio.
+  const bgPx = border.filter((p) => dist(p.c, avg) <= THRESHOLD);
   const bg: Rgb = {
-    r: Math.round(corners.reduce((s, c) => s + c.r, 0) / 4),
-    g: Math.round(corners.reduce((s, c) => s + c.g, 0) / 4),
-    b: Math.round(corners.reduce((s, c) => s + c.b, 0) / 4),
+    r: Math.round(bgPx.reduce((s, p) => s + p.c.r, 0) / bgPx.length),
+    g: Math.round(bgPx.reduce((s, p) => s + p.c.g, 0) / bgPx.length),
+    b: Math.round(bgPx.reduce((s, p) => s + p.c.b, 0) / bgPx.length),
   };
 
   // Flood-fill desde todos los píxeles del borde.

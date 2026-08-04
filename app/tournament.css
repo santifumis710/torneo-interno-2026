@@ -23,12 +23,15 @@
 .tabs { display: flex; gap: 6px; margin: 20px 0 22px; background: var(--surface); padding: 6px; border-radius: 999px; box-shadow: var(--shadow); width: fit-content; }
 .tab { border: 0; background: transparent; color: var(--muted); font-weight: 600; font-size: 14px; padding: 9px 18px; border-radius: 999px; cursor: pointer; }
 .tab[aria-selected="true"] { background: var(--brand); color: #fff; }
-@media (max-width: 520px) { .tabs { width: 100%; justify-content: space-between; } .tab { flex: 1; padding: 9px 6px; } }
+@media (max-width: 520px) {
+  .tabs { width: 100%; gap: 3px; padding: 5px; }
+  .tab { flex: 1 1 0; min-width: 0; padding: 9px 4px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+}
 
 .panel { display: block; }
 
 /* Zones */
-.zones { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.zones { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
 @media (max-width: 720px) { .zones { grid-template-columns: 1fr; } }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
