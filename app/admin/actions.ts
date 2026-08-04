@@ -2,10 +2,21 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { put } from "@vercel/blob";
+import { put, del } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { login, logout, requireAuth } from "@/lib/auth";
 import { normalizeLogo, normalizePhoto } from "@/lib/logo";
+
+/** Borra uno o varios blobs por URL. Best-effort: si falla, loguea y sigue. */
+async function deleteBlobs(urls: (string | null | undefined)[]) {
+  const valid = urls.filter((u): u is string => typeof u === "string" && u.length > 0);
+  if (valid.length === 0) return;
+  try {
+    await del(valid);
+  } catch (err) {
+    console.error("Error borrando blob(s):", err);
+  }
+}
 
 /**
  * Convierte el valor de un input datetime-local ("YYYY-MM-DDTHH:mm") en un
@@ -94,7 +105,14 @@ export async function deleteZone(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
   const sql = db();
+  // Junto los blobs (escudos + fotos de jugadores) antes de borrar en cascada.
+  const rows = (await sql`
+    SELECT logo_url AS url FROM teams WHERE zone_id = ${id}
+    UNION ALL
+    SELECT p.photo_url FROM players p JOIN teams t ON t.id = p.team_id WHERE t.zone_id = ${id}
+  `) as { url: string | null }[];
   await sql`DELETE FROM zones WHERE id = ${id}`; // borra en cascada equipos y partidos
+  await deleteBlobs(rows.map((r) => r.url));
   refresh();
 }
 
@@ -131,7 +149,13 @@ export async function deleteTeam(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
   const sql = db();
+  const rows = (await sql`
+    SELECT logo_url AS url FROM teams WHERE id = ${id}
+    UNION ALL
+    SELECT photo_url FROM players WHERE team_id = ${id}
+  `) as { url: string | null }[];
   await sql`DELETE FROM teams WHERE id = ${id}`;
+  await deleteBlobs(rows.map((r) => r.url));
   refresh();
 }
 
@@ -170,7 +194,9 @@ export async function deletePlayer(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
   const sql = db();
+  const prev = ((await sql`SELECT photo_url FROM players WHERE id = ${id}`) as { photo_url: string | null }[])[0]?.photo_url;
   await sql`DELETE FROM players WHERE id = ${id}`;
+  await deleteBlobs([prev]);
   refresh();
 }
 
@@ -180,9 +206,11 @@ export async function uploadPlayerPhoto(formData: FormData) {
   const file = formData.get("photo");
   if (!id || !(file instanceof File) || file.size === 0) return;
 
-  const url = await processAndUpload(file, `player-${id}`, "photo");
   const sql = db();
+  const prev = ((await sql`SELECT photo_url FROM players WHERE id = ${id}`) as { photo_url: string | null }[])[0]?.photo_url;
+  const url = await processAndUpload(file, `player-${id}`, "photo");
   await sql`UPDATE players SET photo_url = ${url} WHERE id = ${id}`;
+  await deleteBlobs([prev]);
   refresh();
 }
 
@@ -191,7 +219,9 @@ export async function removePlayerPhoto(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
   const sql = db();
+  const prev = ((await sql`SELECT photo_url FROM players WHERE id = ${id}`) as { photo_url: string | null }[])[0]?.photo_url;
   await sql`UPDATE players SET photo_url = NULL WHERE id = ${id}`;
+  await deleteBlobs([prev]);
   refresh();
 }
 
@@ -283,9 +313,11 @@ export async function uploadTeamLogo(formData: FormData) {
   const file = formData.get("logo");
   if (!id || !(file instanceof File) || file.size === 0) return;
 
-  const url = await processAndUpload(file, `team-${id}`);
   const sql = db();
+  const prev = ((await sql`SELECT logo_url FROM teams WHERE id = ${id}`) as { logo_url: string | null }[])[0]?.logo_url;
+  const url = await processAndUpload(file, `team-${id}`);
   await sql`UPDATE teams SET logo_url = ${url} WHERE id = ${id}`;
+  await deleteBlobs([prev]);
   refresh();
 }
 
@@ -294,7 +326,9 @@ export async function removeTeamLogo(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
   const sql = db();
+  const prev = ((await sql`SELECT logo_url FROM teams WHERE id = ${id}`) as { logo_url: string | null }[])[0]?.logo_url;
   await sql`UPDATE teams SET logo_url = NULL WHERE id = ${id}`;
+  await deleteBlobs([prev]);
   refresh();
 }
 
@@ -303,16 +337,20 @@ export async function uploadTournamentLogo(formData: FormData) {
   const file = formData.get("logo");
   if (!(file instanceof File) || file.size === 0) return;
 
-  const url = await processAndUpload(file, "tournament", "logo-keepbg");
   const sql = db();
+  const prev = ((await sql`SELECT logo_url FROM settings WHERE id = 1`) as { logo_url: string | null }[])[0]?.logo_url;
+  const url = await processAndUpload(file, "tournament", "logo-keepbg");
   await sql`UPDATE settings SET logo_url = ${url} WHERE id = 1`;
+  await deleteBlobs([prev]);
   refresh();
 }
 
 export async function removeTournamentLogo() {
   await requireAuth();
   const sql = db();
+  const prev = ((await sql`SELECT logo_url FROM settings WHERE id = 1`) as { logo_url: string | null }[])[0]?.logo_url;
   await sql`UPDATE settings SET logo_url = NULL WHERE id = 1`;
+  await deleteBlobs([prev]);
   refresh();
 }
 
