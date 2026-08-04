@@ -143,3 +143,21 @@ export async function getPublicData(): Promise<PublicData> {
 
   return { settings, zones: publicZones, ties, teamsById };
 }
+
+export type AdminData = {
+  settings: Settings;
+  zones: Zone[];
+  teams: Team[];
+};
+
+/** Trae todo lo necesario para el panel de administración. */
+export async function getAdminData(): Promise<AdminData> {
+  const sql = db();
+  const [settingsRows, zones, teams] = (await Promise.all([
+    sql`SELECT tournament_name, subtitle, logo_url, points_win, points_draw FROM settings WHERE id = 1`,
+    sql`SELECT id, name, qualifiers_count, sort_order FROM zones ORDER BY sort_order, id`,
+    sql`SELECT id, zone_id, name, logo_url FROM teams ORDER BY sort_order, id`,
+  ])) as [Settings[], Zone[], Team[]];
+
+  return { settings: settingsRows[0] ?? DEFAULT_SETTINGS, zones, teams };
+}

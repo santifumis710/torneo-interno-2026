@@ -45,7 +45,10 @@ Ver `docs/decisiones.md` (registro completo) y `docs/especificacion.md` (spec t�
 - 🟢 **Relevamiento cerrado.** Requisitos y arquitectura definidos.
 - 🟢 **Scaffold hecho.** App Next.js + TS creada; vista pública (posiciones/fixture/playoffs) con datos de ejemplo. `npm run build` OK.
 - 🔗 **Repo:** https://github.com/santifumis710/torneo-interno-2026
-- ⏭️ **Próximo:** conectar Vercel Postgres + Blob y construir el panel de administración (`/admin`).
+- 🟢 **Base Neon creada** y esquema en `db/schema.sql`. Vista pública ya lee de la base (`lib/queries.ts` + `app/PublicView.tsx`), con estados vacíos.
+- ⚠️ **Los secretos se redactan en el entorno del agente** (`.env.local` trae `[SENSITIVE]`). No se puede correr `db:setup` ni conectar a la base localmente: **las tablas se crean pegando `db/schema.sql` en el SQL Editor de Neon**, y se prueba todo vía los deploys de Vercel.
+- 🟢 **Panel `/admin`** con login (`ADMIN_PASSWORD`), edición de config del torneo (nombre/subtítulo/puntaje) y CRUD de zonas y equipos. `lib/auth.ts`, `app/admin/*`.
+- ⏭️ **Próximo:** subir logos (equipos y torneo) con Vercel Blob, cargar partidos (recálculo de tabla) y editor de cruces de playoffs.
 
 ## Reglas de trabajo para agentes
 
