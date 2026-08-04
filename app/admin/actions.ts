@@ -215,13 +215,18 @@ export async function deleteMatch(formData: FormData) {
 /* ---------- Logos (Vercel Blob + normalización) ---------- */
 
 async function processAndUpload(file: File, prefix: string): Promise<string> {
-  const raw = Buffer.from(await file.arrayBuffer());
-  const png = await normalizeLogo(raw);
-  const { url } = await put(`logos/${prefix}-${Date.now()}.png`, png, {
-    access: "public",
-    contentType: "image/png",
-  });
-  return url;
+  try {
+    const raw = Buffer.from(await file.arrayBuffer());
+    const png = await normalizeLogo(raw);
+    const { url } = await put(`logos/${prefix}-${Date.now()}.png`, png, {
+      access: "public",
+      contentType: "image/png",
+    });
+    return url;
+  } catch (err) {
+    console.error(`Error subiendo logo (${prefix}):`, err);
+    throw err;
+  }
 }
 
 export async function uploadTeamLogo(formData: FormData) {

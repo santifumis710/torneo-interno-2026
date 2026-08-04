@@ -80,7 +80,16 @@ async function removeFlatBackground(input: Buffer): Promise<Buffer> {
 
 /** Normaliza un logo: quita fondo plano y devuelve un PNG cuadrado uniforme. */
 export async function normalizeLogo(input: Buffer): Promise<Buffer> {
-  const cleaned = await removeFlatBackground(input);
+  // Primero achicamos (respetando orientación EXIF) para que el procesamiento
+  // de píxeles sea liviano: como mucho SIZE×SIZE.
+  const small = await sharp(input)
+    .rotate()
+    .resize(SIZE, SIZE, { fit: "inside", withoutEnlargement: true })
+    .png()
+    .toBuffer();
+
+  const cleaned = await removeFlatBackground(small);
+
   return sharp(cleaned)
     .resize(SIZE, SIZE, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png({ compressionLevel: 9 })
