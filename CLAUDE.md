@@ -47,8 +47,10 @@ Ver `docs/decisiones.md` (registro completo) y `docs/especificacion.md` (spec t�
 - 🔗 **Repo:** https://github.com/santifumis710/torneo-interno-2026
 - 🟢 **Base Neon creada** y esquema en `db/schema.sql`. Vista pública ya lee de la base (`lib/queries.ts` + `app/PublicView.tsx`), con estados vacíos.
 - ⚠️ **Los secretos se redactan en el entorno del agente** (`.env.local` trae `[SENSITIVE]`). No se puede correr `db:setup` ni conectar a la base localmente: **las tablas se crean pegando `db/schema.sql` en el SQL Editor de Neon**, y se prueba todo vía los deploys de Vercel.
-- 🟢 **Panel `/admin`** con login (`ADMIN_PASSWORD`), edición de config del torneo (nombre/subtítulo/puntaje) y CRUD de zonas y equipos. `lib/auth.ts`, `app/admin/*`.
-- ⏭️ **Próximo:** subir logos (equipos y torneo) con Vercel Blob, cargar partidos (recálculo de tabla) y editor de cruces de playoffs.
+- 🟢 **Panel `/admin`** con login (`ADMIN_PASSWORD`) y ABM de: config del torneo, zonas, equipos, **jugadores**, **partidos** (la tabla y el fixture se recalculan solos) y **logos** (equipos y torneo, con normalización + quita de fondos planos vía `lib/logo.ts` + Vercel Blob).
+- 🟢 **Vista pública** con pestañas **Posiciones / Equipos / Fixture / Playoffs**.
+- 🗄️ **Blob store activo:** `store_pWzzQS4gbsh26qv6` (usa `BLOB_READ_WRITE_TOKEN`). Tabla `players` agregada al esquema.
+- ⏭️ **Próximo / pendiente:** editor de **cruces de playoffs** en el admin (la vista pública ya los muestra). Verificación end-to-end del admin por el usuario.
 
 ## Reglas de trabajo para agentes
 
