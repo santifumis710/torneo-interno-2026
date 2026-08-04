@@ -36,6 +36,8 @@
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .card + .card { margin-top: 16px; }
+/* En grillas las cards son columnas, no una pila: el margen entre cards las descuadraría. */
+.zones .card + .card, .teams-grid .card + .card { margin-top: 0; }
 .card-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line); }
 .card-head h2 { margin: 0; font-size: 16px; font-weight: 800; letter-spacing: .2px; }
 .badge { font-size: 11.5px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--line); padding: 4px 9px; border-radius: 999px; }
