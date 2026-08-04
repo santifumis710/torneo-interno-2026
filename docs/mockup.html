@@ -1,0 +1,331 @@
+<style>
+  :root {
+    --bg: #eef1f6;
+    --surface: #ffffff;
+    --surface-2: #f6f8fc;
+    --ink: #0f1b33;
+    --muted: #5a6a86;
+    --line: #dde3ee;
+    --brand: #123a86;      /* UTN azul */
+    --brand-2: #1f6fd6;    /* celeste */
+    --brand-ink: #ffffff;
+    --gold: #d4a017;
+    --gold-tint: rgba(212,160,23,0.14);
+    --gold-line: rgba(212,160,23,0.55);
+    --win: #1f9d55;
+    --draw: #9aa4b6;
+    --loss: #d94a3d;
+    --shadow: 0 1px 2px rgba(15,27,51,.06), 0 8px 24px rgba(15,27,51,.06);
+    --radius: 14px;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1220;
+      --surface: #131c2e;
+      --surface-2: #182238;
+      --ink: #eaf0fb;
+      --muted: #93a2bd;
+      --line: #26314a;
+      --brand: #2f6fd6;
+      --brand-2: #6aa8f2;
+      --gold: #e7b93c;
+      --gold-tint: rgba(231,185,60,0.16);
+      --gold-line: rgba(231,185,60,0.5);
+      --win: #35c06f;
+      --loss: #f0685b;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg:#eef1f6;--surface:#fff;--surface-2:#f6f8fc;--ink:#0f1b33;--muted:#5a6a86;--line:#dde3ee;
+    --brand:#123a86;--brand-2:#1f6fd6;--gold:#d4a017;--gold-tint:rgba(212,160,23,0.14);--gold-line:rgba(212,160,23,0.55);
+    --win:#1f9d55;--loss:#d94a3d;--shadow:0 1px 2px rgba(15,27,51,.06),0 8px 24px rgba(15,27,51,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg:#0b1220;--surface:#131c2e;--surface-2:#182238;--ink:#eaf0fb;--muted:#93a2bd;--line:#26314a;
+    --brand:#2f6fd6;--brand-2:#6aa8f2;--gold:#e7b93c;--gold-tint:rgba(231,185,60,0.16);--gold-line:rgba(231,185,60,0.5);
+    --win:#35c06f;--loss:#f0685b;--shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .page {
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px 64px; }
+
+  /* Header */
+  .topbar {
+    background: linear-gradient(135deg, var(--brand), var(--brand-2));
+    color: var(--brand-ink);
+  }
+  .topbar .wrap { display: flex; align-items: center; gap: 16px; padding-top: 20px; padding-bottom: 20px; }
+  .crest {
+    width: 54px; height: 54px; border-radius: 12px; flex: none;
+    background: rgba(255,255,255,.16);
+    display: grid; place-items: center;
+    font-weight: 800; letter-spacing: .5px; font-size: 13px;
+    border: 1px solid rgba(255,255,255,.35);
+  }
+  .title h1 { margin: 0; font-size: clamp(20px, 4.5vw, 28px); font-weight: 800; letter-spacing: -.3px; text-wrap: balance; }
+  .title p { margin: 2px 0 0; font-size: 13px; opacity: .85; letter-spacing: .3px; text-transform: uppercase; }
+  .spacer { flex: 1; }
+  .theme-btn {
+    appearance: none; border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.12);
+    color: var(--brand-ink); border-radius: 999px; padding: 8px 12px; font-size: 13px; cursor: pointer;
+  }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 6px; margin: 20px 0 22px; background: var(--surface); padding: 6px; border-radius: 999px; box-shadow: var(--shadow); width: fit-content; }
+  .tab { border: 0; background: transparent; color: var(--muted); font-weight: 600; font-size: 14px; padding: 9px 18px; border-radius: 999px; cursor: pointer; }
+  .tab[aria-selected="true"] { background: var(--brand); color: #fff; }
+  @media (max-width: 520px){ .tabs { width: 100%; justify-content: space-between; } .tab { flex:1; padding:9px 6px; } }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Zones */
+  .zones { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 860px){ .zones { grid-template-columns: 1fr; } }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .card-head h2 { margin: 0; font-size: 16px; font-weight: 800; letter-spacing: .2px; }
+  .badge { font-size: 11.5px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--line); padding: 4px 9px; border-radius: 999px; }
+
+  .tscroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  thead th {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
+    font-weight: 700; text-align: center; padding: 10px 6px; background: var(--surface-2); white-space: nowrap;
+  }
+  thead th.team, tbody td.team { text-align: left; }
+  thead th.pos, tbody td.pos { padding-left: 14px; }
+  tbody td { padding: 9px 6px; text-align: center; font-size: 14px; border-top: 1px solid var(--line); white-space: nowrap; }
+  tbody td.pts { font-weight: 800; }
+  .num-pos { display:inline-grid; place-items:center; width: 22px; height: 22px; border-radius: 6px; font-size: 12.5px; font-weight: 700; color: var(--muted); background: var(--surface-2); }
+
+  tr.qual td { background: var(--gold-tint); }
+  tr.qual td.pos { position: relative; }
+  tr.qual td.pos::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background: var(--gold); }
+  tr.qual .num-pos { background: var(--gold); color: #2a1e00; }
+
+  .team { display: flex; align-items: center; gap: 10px; }
+  .logo { width: 26px; height: 26px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .3px; }
+  .team-name { font-weight: 600; }
+  .form { display: none; }
+
+  .legend { display: flex; align-items: center; gap: 8px; padding: 12px 16px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); }
+  .swatch { width: 14px; height: 14px; border-radius: 4px; background: var(--gold-tint); border: 1px solid var(--gold-line); }
+
+  /* Fixture */
+  .matchday-h { font-size: 13px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); font-weight: 700; margin: 4px 2px 10px; }
+  .match { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--line); }
+  .match:first-child { border-top: 0; }
+  .side { display: flex; align-items: center; gap: 9px; }
+  .side.home { justify-content: flex-end; text-align: right; }
+  .score { min-width: 62px; text-align: center; font-weight: 800; font-size: 15px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 5px 4px; }
+  .score.pending { color: var(--muted); font-weight: 600; font-size: 12.5px; letter-spacing:.3px; }
+  .side .team-name { font-size: 13.5px; }
+  @media (max-width: 480px){ .side .team-name{ font-size:12.5px; } }
+
+  /* Bracket */
+  .bracket { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 720px){ .bracket { grid-template-columns: 1fr; } }
+  .round-h { font-size: 12px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); font-weight: 700; margin: 0 2px 10px; text-align:center; }
+  .round { display: flex; flex-direction: column; gap: 14px; justify-content: space-around; }
+  .tie { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .tie-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; }
+  .tie-row + .tie-row { border-top: 1px solid var(--line); }
+  .tie-row.win .tie-name { font-weight: 800; }
+  .tie-row.win .tie-score { color: var(--win); font-weight: 800; }
+  .seed { font-size: 11px; color: var(--muted); background: var(--surface-2); border:1px solid var(--line); border-radius: 6px; padding: 2px 6px; margin-right: 8px; font-weight:700; }
+  .tie-name { font-size: 13.5px; display:flex; align-items:center; }
+  .tie-score { font-size: 14px; font-variant-numeric: tabular-nums; }
+  .champion { margin-top: 12px; text-align:center; font-size:13px; color:var(--muted); }
+  .champion b { color: var(--gold); }
+
+  .note { margin-top: 26px; font-size: 12.5px; color: var(--muted); text-align:center; }
+</style>
+
+<div class="page">
+  <header class="topbar">
+    <div class="wrap">
+      <div class="crest">UTN</div>
+      <div class="title">
+        <h1>Torneo Interno 2026</h1>
+        <p>UTN · Facultad Regional Santa Fe</p>
+      </div>
+      <div class="spacer"></div>
+      <button class="theme-btn" id="themeBtn" type="button">Tema</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-panel="posiciones">Posiciones</button>
+      <button class="tab" role="tab" aria-selected="false" data-panel="fixture">Fixture</button>
+      <button class="tab" role="tab" aria-selected="false" data-panel="playoffs">Playoffs</button>
+    </div>
+
+    <!-- POSICIONES -->
+    <section class="panel active" id="posiciones">
+      <div class="zones" id="zones"></div>
+      <p class="note">Los primeros 4 de cada zona (fondo dorado) clasifican a los playoffs. Configurable por el profesor.</p>
+    </section>
+
+    <!-- FIXTURE -->
+    <section class="panel" id="fixture">
+      <div class="card">
+        <div class="card-head"><h2>Zona A · Fecha 5</h2><span class="badge">Sáb 15/03</span></div>
+        <div id="fixtureA"></div>
+      </div>
+      <div style="height:16px"></div>
+      <div class="card">
+        <div class="card-head"><h2>Zona B · Fecha 5</h2><span class="badge">Dom 16/03</span></div>
+        <div id="fixtureB"></div>
+      </div>
+    </section>
+
+    <!-- PLAYOFFS -->
+    <section class="panel" id="playoffs">
+      <div class="card" style="padding:16px">
+        <div class="bracket">
+          <div>
+            <div class="round-h">Cuartos</div>
+            <div class="round" id="qf"></div>
+          </div>
+          <div>
+            <div class="round-h">Semifinales</div>
+            <div class="round" id="sf"></div>
+          </div>
+          <div>
+            <div class="round-h">Final</div>
+            <div class="round" id="fn"></div>
+          </div>
+        </div>
+        <div class="champion">Cruces editables por el profesor · ej. <b>1°A vs 4°B</b></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  const C = ['#123a86','#1f9d55','#d94a3d','#7a3fb0','#0d8f9e','#c85a12','#334155','#b02a5b'];
+  function logo(name, i){ const ini = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    return `<span class="logo" style="background:${C[i%C.length]}">${ini}</span>`; }
+
+  // Standings data: [name, PJ, G, E, P, GF, GC]
+  const zoneA = [
+    ['Sistemas FC',5,4,1,0,14,4],
+    ['Los Ingenieros',5,4,0,1,11,6],
+    ['Mecánica United',5,3,1,1,9,5],
+    ['Química CF',5,2,2,1,8,7],
+    ['Civil Athletic',5,1,2,2,6,8],
+    ['Eléctricos',5,1,0,4,4,12],
+    ['Industrial FC',5,0,0,5,3,16],
+  ];
+  const zoneB = [
+    ['Los Decanos',5,5,0,0,16,3],
+    ['Naval SC',5,3,1,1,10,6],
+    ['Ambiental FC',5,3,0,2,9,8],
+    ['Textil United',5,2,1,2,7,7],
+    ['Metalúrgica',5,1,1,3,5,9],
+    ['Rectorado FC',5,1,0,4,6,13],
+    ['Becados CF',5,0,1,4,4,11],
+  ];
+
+  function tableFor(rows){
+    const data = rows.map((r,i)=>{
+      const [name,pj,g,e,p,gf,gc]=r; return {name,pj,g,e,p,gf,gc,dif:gf-gc,pts:g*3+e, i};
+    }).sort((a,b)=> b.pts-a.pts || b.dif-a.dif || b.gf-a.gf);
+    let body='';
+    data.forEach((t,idx)=>{
+      const qual = idx<4 ? 'qual':'';
+      body += `<tr class="${qual}">
+        <td class="pos"><span class="num-pos">${idx+1}</span></td>
+        <td class="team">${logo(t.name,t.i)}<span class="team-name">${t.name}</span></td>
+        <td>${t.pj}</td><td>${t.g}</td><td>${t.e}</td><td>${t.p}</td>
+        <td>${t.gf}</td><td>${t.gc}</td><td>${t.dif>0?'+':''}${t.dif}</td>
+        <td class="pts">${t.pts}</td></tr>`;
+    });
+    return `<div class="tscroll"><table>
+      <thead><tr>
+        <th class="pos">#</th><th class="team">Equipo</th>
+        <th>PJ</th><th>G</th><th>E</th><th>P</th><th>GF</th><th>GC</th><th>DIF</th><th>Pts</th>
+      </tr></thead><tbody>${body}</tbody></table></div>`;
+  }
+
+  document.getElementById('zones').innerHTML = `
+    <div class="card">
+      <div class="card-head"><h2>Zona A</h2><span class="badge">Clasifican 4</span></div>
+      ${tableFor(zoneA)}
+      <div class="legend"><span class="swatch"></span> Zona de clasificación a playoffs</div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Zona B</h2><span class="badge">Clasifican 4</span></div>
+      ${tableFor(zoneB)}
+      <div class="legend"><span class="swatch"></span> Zona de clasificación a playoffs</div>
+    </div>`;
+
+  // Fixture
+  function match(hN,hI,aN,aI,hs,as){
+    const pend = hs===null;
+    const sc = pend ? `<div class="score pending">VS</div>` : `<div class="score">${hs} - ${as}</div>`;
+    return `<div class="match">
+      <div class="side home"><span class="team-name">${hN}</span>${logo(hN,hI)}</div>
+      ${sc}
+      <div class="side away">${logo(aN,aI)}<span class="team-name">${aN}</span></div>
+    </div>`;
+  }
+  document.getElementById('fixtureA').innerHTML =
+    match('Sistemas FC',0,'Industrial FC',6,3,0)+
+    match('Los Ingenieros',1,'Eléctricos',5,2,1)+
+    match('Mecánica United',2,'Civil Athletic',4,null,null)+
+    match('Química CF',3,'Los Ingenieros',1,null,null);
+  document.getElementById('fixtureB').innerHTML =
+    match('Los Decanos',0,'Becados CF',6,4,1)+
+    match('Naval SC',1,'Rectorado FC',5,2,2)+
+    match('Ambiental FC',2,'Metalúrgica',4,null,null)+
+    match('Textil United',3,'Naval SC',1,null,null);
+
+  // Bracket
+  function tie(sh,nh,scoreh,sa,na,scorea,wh){
+    return `<div class="tie">
+      <div class="tie-row ${wh==='h'?'win':''}"><span class="tie-name"><span class="seed">${sh}</span>${nh}</span><span class="tie-score">${scoreh}</span></div>
+      <div class="tie-row ${wh==='a'?'win':''}"><span class="tie-name"><span class="seed">${sa}</span>${na}</span><span class="tie-score">${scorea}</span></div>
+    </div>`;
+  }
+  document.getElementById('qf').innerHTML =
+    tie('1°A','Sistemas FC',2,'4°B','Textil United',1,'h')+
+    tie('2°B','Naval SC',0,'3°A','Mecánica United',1,'a')+
+    tie('1°B','Los Decanos',3,'4°A','Química CF',0,'h')+
+    tie('2°A','Los Ingenieros',2,'3°B','Ambiental FC',2,'');
+  document.getElementById('sf').innerHTML =
+    tie('','Sistemas FC','—','','Mecánica United','—','')+
+    tie('','Los Decanos','—','','Ganador C4','—','');
+  document.getElementById('fn').innerHTML =
+    tie('','Por definir','—','','Por definir','—','');
+
+  // Tabs
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click',()=>{
+      document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected','false'));
+      t.setAttribute('aria-selected','true');
+      document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+      document.getElementById(t.dataset.panel).classList.add('active');
+    });
+  });
+
+  // Theme toggle
+  const root = document.documentElement;
+  document.getElementById('themeBtn').addEventListener('click',()=>{
+    const cur = root.getAttribute('data-theme')
+      || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light');
+    root.setAttribute('data-theme', cur==='dark'?'light':'dark');
+  });
+</script>

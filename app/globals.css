@@ -1,0 +1,61 @@
+:root {
+  --bg: #eef1f6;
+  --surface: #ffffff;
+  --surface-2: #f6f8fc;
+  --ink: #0f1b33;
+  --muted: #5a6a86;
+  --line: #dde3ee;
+  --brand: #123a86;
+  --brand-2: #1f6fd6;
+  --brand-ink: #ffffff;
+  --gold: #d4a017;
+  --gold-tint: rgba(212, 160, 23, 0.14);
+  --gold-line: rgba(212, 160, 23, 0.55);
+  --win: #1f9d55;
+  --loss: #d94a3d;
+  --shadow: 0 1px 2px rgba(15, 27, 51, 0.06), 0 8px 24px rgba(15, 27, 51, 0.06);
+  --radius: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1220;
+    --surface: #131c2e;
+    --surface-2: #182238;
+    --ink: #eaf0fb;
+    --muted: #93a2bd;
+    --line: #26314a;
+    --brand: #2f6fd6;
+    --brand-2: #6aa8f2;
+    --gold: #e7b93c;
+    --gold-tint: rgba(231, 185, 60, 0.16);
+    --gold-line: rgba(231, 185, 60, 0.5);
+    --win: #35c06f;
+    --loss: #f0685b;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.35);
+  }
+  html { color-scheme: dark; }
+}
+
+:root[data-theme="light"] {
+  --bg: #eef1f6; --surface: #fff; --surface-2: #f6f8fc; --ink: #0f1b33; --muted: #5a6a86; --line: #dde3ee;
+  --brand: #123a86; --brand-2: #1f6fd6; --gold: #d4a017; --gold-tint: rgba(212,160,23,0.14); --gold-line: rgba(212,160,23,0.55);
+  --win: #1f9d55; --loss: #d94a3d; --shadow: 0 1px 2px rgba(15,27,51,.06), 0 8px 24px rgba(15,27,51,.06);
+}
+:root[data-theme="dark"] {
+  --bg: #0b1220; --surface: #131c2e; --surface-2: #182238; --ink: #eaf0fb; --muted: #93a2bd; --line: #26314a;
+  --brand: #2f6fd6; --brand-2: #6aa8f2; --gold: #e7b93c; --gold-tint: rgba(231,185,60,0.16); --gold-line: rgba(231,185,60,0.5);
+  --win: #35c06f; --loss: #f0685b; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+}
+
+* { box-sizing: border-box; padding: 0; margin: 0; }
+html, body { max-width: 100vw; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+a { color: inherit; text-decoration: none; }
