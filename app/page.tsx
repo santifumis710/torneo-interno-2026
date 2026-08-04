@@ -236,10 +236,7 @@ export default function Home() {
               <ZoneTable name="Zona A" rows={ZONE_A} />
               <ZoneTable name="Zona B" rows={ZONE_B} />
             </div>
-            <p className="note">
-              Los primeros {QUALIFIERS} de cada zona (fondo dorado) clasifican a los playoffs.
-              Configurable por el profesor.
-            </p>
+            <p className="note">Los primeros {QUALIFIERS} de cada zona clasifican al playoff.</p>
           </section>
         )}
 

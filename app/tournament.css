@@ -26,7 +26,7 @@
 
 /* Zones */
 .zones { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-@media (max-width: 860px) { .zones { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .zones { grid-template-columns: 1fr; } }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .card + .card { margin-top: 16px; }
