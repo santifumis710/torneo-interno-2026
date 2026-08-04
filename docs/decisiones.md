@@ -24,6 +24,8 @@ Cada decisión importante se anota aquí con fecha y motivo. Formato: fecha — 
 - **2026-08-03** — **Stack confirmado: Next.js (App Router) + TypeScript**, desplegado en Vercel.
 - **2026-08-03** — **Base de datos y storage: ecosistema Vercel** (Vercel Postgres + Vercel Blob para las imágenes), ya que el usuario tiene experiencia subiendo imágenes a Vercel.
 - **2026-08-03** — Normalización de logos: **unificar tamaño/formato + quitar fondos planos** (heurística, sin IA). Fondos complejos quedan como estén / se pide PNG transparente.
+- **2026-08-03** — Base de datos vía **Neon** (Marketplace de Vercel; Vercel discontinuó su Postgres propio). Acceso con **`@neondatabase/serverless` y SQL crudo parametrizado** (sin ORM) — proyecto chico, más transparente y fácil de depurar. Esquema en `db/schema.sql`, cliente en `lib/db.ts`.
+- **2026-08-03** — Contraseña del admin en la env var **`ADMIN_PASSWORD`** (secreto de servidor).
 
 ## Pendientes de confirmar
 
