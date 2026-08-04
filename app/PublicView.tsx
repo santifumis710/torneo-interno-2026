@@ -96,9 +96,17 @@ function ZoneTable({ name, qualifiers, standings }: { name: string; qualifiers: 
 
 const ROUND_NAMES: Record<number, string> = { 0: "Cuartos", 1: "Semifinales", 2: "Final", 3: "Definición" };
 
+type TabKey = "posiciones" | "equipos" | "fixture" | "playoffs";
+const TAB_LABELS: Record<TabKey, string> = {
+  posiciones: "Posiciones",
+  equipos: "Equipos",
+  fixture: "Fixture",
+  playoffs: "Playoffs",
+};
+
 export default function PublicView({ data }: { data: PublicData }) {
-  const [tab, setTab] = useState<"posiciones" | "fixture" | "playoffs">("posiciones");
-  const { settings, zones, ties, teamsById } = data;
+  const [tab, setTab] = useState<TabKey>("posiciones");
+  const { settings, zones, ties, teamsById, playersByTeam } = data;
 
   function toggleTheme() {
     const root = document.documentElement;
@@ -113,6 +121,7 @@ export default function PublicView({ data }: { data: PublicData }) {
 
   const rounds = [...new Set(ties.map((t) => t.round))].sort((a, b) => a - b);
   const anyMatches = zones.some((z) => z.matches.length > 0);
+  const anyTeams = zones.some((z) => z.teams.length > 0);
 
   return (
     <>
@@ -137,9 +146,9 @@ export default function PublicView({ data }: { data: PublicData }) {
 
       <main className="wrap">
         <div className="tabs" role="tablist">
-          {(["posiciones", "fixture", "playoffs"] as const).map((t) => (
+          {(["posiciones", "equipos", "fixture", "playoffs"] as const).map((t) => (
             <button key={t} className="tab" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
-              {t === "posiciones" ? "Posiciones" : t === "fixture" ? "Fixture" : "Playoffs"}
+              {TAB_LABELS[t]}
             </button>
           ))}
         </div>
@@ -160,6 +169,46 @@ export default function PublicView({ data }: { data: PublicData }) {
                 ))}
               </div>
               <p className="note">Los primeros de cada zona clasifican al playoff.</p>
+            </section>
+          ))}
+
+        {tab === "equipos" &&
+          (!anyTeams ? (
+            <div className="card empty">Todavía no hay equipos cargados.</div>
+          ) : (
+            <section className="panel">
+              {zones
+                .filter((z) => z.teams.length > 0)
+                .map((z) => (
+                  <div key={z.zone.id}>
+                    <div className="zone-title">{z.zone.name}</div>
+                    <div className="teams-grid">
+                      {z.teams.map((team) => {
+                        const roster = playersByTeam[team.id] ?? [];
+                        return (
+                          <div className="card" key={team.id}>
+                            <div className="team-card-head">
+                              <TeamLogo team={team} />
+                              <span className="name">{team.name}</span>
+                            </div>
+                            {roster.length === 0 ? (
+                              <div className="empty-r">Sin jugadores cargados.</div>
+                            ) : (
+                              <ul className="roster">
+                                {roster.map((pl) => (
+                                  <li key={pl.id}>
+                                    <span className="pnum">{pl.number ?? "–"}</span>
+                                    <span>{pl.name}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
             </section>
           ))}
 

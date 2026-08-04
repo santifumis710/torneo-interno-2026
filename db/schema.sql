@@ -62,6 +62,16 @@ CREATE TABLE IF NOT EXISTS playoff_ties (
   played        BOOLEAN NOT NULL DEFAULT FALSE
 );
 
+-- Jugadores de cada equipo (se cargan a mano desde el admin)
+CREATE TABLE IF NOT EXISTS players (
+  id          SERIAL PRIMARY KEY,
+  team_id     INT  NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  number      INT,                 -- número de camiseta (opcional)
+  sort_order  INT  NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS players_team_idx ON players(team_id);
+
 -- Semilla inicial: dos zonas para empezar (el profe puede renombrar/borrar/agregar).
 INSERT INTO zones (name, qualifiers_count, sort_order)
 SELECT 'Zona A', 4, 0 WHERE NOT EXISTS (SELECT 1 FROM zones);

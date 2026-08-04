@@ -10,6 +10,7 @@ export type Settings = {
 
 export type Zone = { id: number; name: string; qualifiers_count: number; sort_order: number };
 export type Team = { id: number; zone_id: number; name: string; logo_url: string | null };
+export type Player = { id: number; team_id: number; name: string; number: number | null };
 
 export type MatchRow = {
   id: number;
@@ -107,6 +108,7 @@ export type PublicZone = {
   zone: Zone;
   standings: StandingRow[];
   matches: MatchRow[];
+  teams: Team[];
 };
 
 export type PublicData = {
@@ -114,22 +116,27 @@ export type PublicData = {
   zones: PublicZone[];
   ties: TieRow[];
   teamsById: Record<number, Team>;
+  playersByTeam: Record<number, Player[]>;
 };
 
 /** Trae todo lo necesario para la vista pública. */
 export async function getPublicData(): Promise<PublicData> {
   const sql = db();
-  const [settingsRows, zones, teams, matches, ties] = (await Promise.all([
+  const [settingsRows, zones, teams, matches, ties, players] = (await Promise.all([
     sql`SELECT tournament_name, subtitle, logo_url, points_win, points_draw FROM settings WHERE id = 1`,
     sql`SELECT id, name, qualifiers_count, sort_order FROM zones ORDER BY sort_order, id`,
     sql`SELECT id, zone_id, name, logo_url FROM teams ORDER BY sort_order, id`,
     sql`SELECT id, zone_id, home_team_id, away_team_id, home_score, away_score, played, matchday, scheduled_at FROM matches ORDER BY matchday NULLS LAST, id`,
     sql`SELECT id, round, sort_order, home_label, away_label, home_team_id, away_team_id, home_score, away_score, played FROM playoff_ties ORDER BY round, sort_order, id`,
-  ])) as [Settings[], Zone[], Team[], MatchRow[], TieRow[]];
+    sql`SELECT id, team_id, name, number FROM players ORDER BY sort_order, id`,
+  ])) as [Settings[], Zone[], Team[], MatchRow[], TieRow[], Player[]];
 
   const settings = settingsRows[0] ?? DEFAULT_SETTINGS;
   const teamsById: Record<number, Team> = {};
   for (const t of teams) teamsById[t.id] = t;
+
+  const playersByTeam: Record<number, Player[]> = {};
+  for (const p of players) (playersByTeam[p.team_id] ??= []).push(p);
 
   const publicZones: PublicZone[] = zones.map((zone) => {
     const zoneTeams = teams.filter((t) => t.zone_id === zone.id);
@@ -138,26 +145,32 @@ export async function getPublicData(): Promise<PublicData> {
       zone,
       standings: computeStandings(zoneTeams, zoneMatches, settings.points_win, settings.points_draw),
       matches: zoneMatches,
+      teams: zoneTeams,
     };
   });
 
-  return { settings, zones: publicZones, ties, teamsById };
+  return { settings, zones: publicZones, ties, teamsById, playersByTeam };
 }
 
 export type AdminData = {
   settings: Settings;
   zones: Zone[];
   teams: Team[];
+  playersByTeam: Record<number, Player[]>;
 };
 
 /** Trae todo lo necesario para el panel de administración. */
 export async function getAdminData(): Promise<AdminData> {
   const sql = db();
-  const [settingsRows, zones, teams] = (await Promise.all([
+  const [settingsRows, zones, teams, players] = (await Promise.all([
     sql`SELECT tournament_name, subtitle, logo_url, points_win, points_draw FROM settings WHERE id = 1`,
     sql`SELECT id, name, qualifiers_count, sort_order FROM zones ORDER BY sort_order, id`,
     sql`SELECT id, zone_id, name, logo_url FROM teams ORDER BY sort_order, id`,
-  ])) as [Settings[], Zone[], Team[]];
+    sql`SELECT id, team_id, name, number FROM players ORDER BY sort_order, id`,
+  ])) as [Settings[], Zone[], Team[], Player[]];
 
-  return { settings: settingsRows[0] ?? DEFAULT_SETTINGS, zones, teams };
+  const playersByTeam: Record<number, Player[]> = {};
+  for (const p of players) (playersByTeam[p.team_id] ??= []).push(p);
+
+  return { settings: settingsRows[0] ?? DEFAULT_SETTINGS, zones, teams, playersByTeam };
 }

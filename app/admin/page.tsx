@@ -10,6 +10,9 @@ import {
   createTeam,
   updateTeam,
   deleteTeam,
+  createPlayer,
+  updatePlayer,
+  deletePlayer,
   logoutAction,
 } from "./actions";
 
@@ -17,7 +20,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   await requireAuth();
-  const { settings, zones, teams } = await getAdminData();
+  const { settings, zones, teams, playersByTeam } = await getAdminData();
 
   return (
     <div className="admin-wrap">
@@ -92,26 +95,56 @@ export default async function AdminPage() {
 
               {/* Equipos de la zona */}
               {zoneTeams.length === 0 && <p className="hint">Sin equipos en esta zona.</p>}
-              {zoneTeams.map((team) => (
-                <div className="team-line" key={team.id}>
-                  <form action={updateTeam} className="team-edit">
-                    <input type="hidden" name="id" value={team.id} />
-                    <input name="name" defaultValue={team.name} required />
-                    <select name="zone_id" defaultValue={team.zone_id}>
-                      {zones.map((z) => (
-                        <option key={z.id} value={z.id}>
-                          {z.name}
-                        </option>
+              {zoneTeams.map((team) => {
+                const roster = playersByTeam[team.id] ?? [];
+                return (
+                  <div className="team-block" key={team.id}>
+                    <div className="team-line">
+                      <form action={updateTeam} className="team-edit">
+                        <input type="hidden" name="id" value={team.id} />
+                        <input name="name" defaultValue={team.name} required />
+                        <select name="zone_id" defaultValue={team.zone_id}>
+                          {zones.map((z) => (
+                            <option key={z.id} value={z.id}>
+                              {z.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button className="btn btn-sec" type="submit">Guardar</button>
+                      </form>
+                      <form action={deleteTeam}>
+                        <input type="hidden" name="id" value={team.id} />
+                        <button className="btn-danger" type="submit">Borrar</button>
+                      </form>
+                    </div>
+
+                    {/* Jugadores del equipo */}
+                    <div className="players">
+                      <div className="lbl">Jugadores ({roster.length})</div>
+                      {roster.map((pl) => (
+                        <div className="player-line" key={pl.id}>
+                          <form action={updatePlayer} className="player-edit">
+                            <input type="hidden" name="id" value={pl.id} />
+                            <input name="number" type="number" min={0} defaultValue={pl.number ?? ""} placeholder="#" />
+                            <input name="name" defaultValue={pl.name} required />
+                            <button className="btn btn-sec btn-xs" type="submit">Guardar</button>
+                          </form>
+                          <form action={deletePlayer}>
+                            <input type="hidden" name="id" value={pl.id} />
+                            <button className="btn-danger btn-xs" type="submit">✕</button>
+                          </form>
+                        </div>
                       ))}
-                    </select>
-                    <button className="btn btn-sec" type="submit">Guardar</button>
-                  </form>
-                  <form action={deleteTeam}>
-                    <input type="hidden" name="id" value={team.id} />
-                    <button className="btn-danger" type="submit">Borrar</button>
-                  </form>
-                </div>
-              ))}
+                      <form action={createPlayer} className="player-line">
+                        <input type="hidden" name="team_id" value={team.id} />
+                        <input name="number" type="number" min={0} placeholder="#" style={{ flex: "0 0 58px", textAlign: "center" }} />
+                        <input name="name" placeholder="Agregar jugador" required style={{ flex: 1 }} />
+                        <button className="btn btn-xs" type="submit">Agregar</button>
+                      </form>
+                    </div>
+                  </div>
+                );
+              })}
 
               {/* Agregar equipo a la zona */}
               <form action={createTeam} className="row add-inline">

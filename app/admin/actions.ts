@@ -121,3 +121,42 @@ export async function deleteTeam(formData: FormData) {
   await sql`DELETE FROM teams WHERE id = ${id}`;
   refresh();
 }
+
+/* ---------- Jugadores ---------- */
+
+export async function createPlayer(formData: FormData) {
+  await requireAuth();
+  const teamId = Number(formData.get("team_id"));
+  const name = String(formData.get("name") ?? "").trim();
+  const numberRaw = String(formData.get("number") ?? "").trim();
+  const number = numberRaw === "" ? null : Number(numberRaw);
+  if (!teamId || !name) return;
+
+  const sql = db();
+  await sql`
+    INSERT INTO players (team_id, name, number, sort_order)
+    VALUES (${teamId}, ${name}, ${number}, COALESCE((SELECT MAX(sort_order) + 1 FROM players WHERE team_id = ${teamId}), 0))`;
+  refresh();
+}
+
+export async function updatePlayer(formData: FormData) {
+  await requireAuth();
+  const id = Number(formData.get("id"));
+  const name = String(formData.get("name") ?? "").trim();
+  const numberRaw = String(formData.get("number") ?? "").trim();
+  const number = numberRaw === "" ? null : Number(numberRaw);
+  if (!id || !name) return;
+
+  const sql = db();
+  await sql`UPDATE players SET name = ${name}, number = ${number} WHERE id = ${id}`;
+  refresh();
+}
+
+export async function deletePlayer(formData: FormData) {
+  await requireAuth();
+  const id = Number(formData.get("id"));
+  if (!id) return;
+  const sql = db();
+  await sql`DELETE FROM players WHERE id = ${id}`;
+  refresh();
+}
