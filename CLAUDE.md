@@ -5,57 +5,57 @@
 
 ## Qué es este proyecto
 
-Página web para mostrar la información de un **torneo interno de la facultad** (UTN Santa Fe).
-El contenido lo carga el **profesor** (no el desarrollador), por lo que la prioridad es una
-**interfaz de administración simple** para gestionar zonas, equipos, logos y estadísticas.
+Página web del **torneo interno de la facultad** (UTN Facultad Regional Santa Fe).
+El contenido lo carga el **profesor** (no el desarrollador) desde un **panel de administración**
+simple. Prioridad #1 del producto: que el profesor cargue datos sin fricción.
 
-La página tiene dos audiencias:
-- **Público (solo lectura):** alumnos/interesados que ven las tablas de posiciones.
-- **Admin (profesor):** carga y edita toda la información.
+Dos audiencias:
+- **Público (solo lectura):** ven posiciones, equipos, fixture y playoffs.
+- **Admin (profesor):** carga y edita todo en `/admin`.
 
-## Requisitos confirmados por el usuario
+🔗 **Producción:** https://utn-torneo-interno-2026.vercel.app · **Repo:** https://github.com/santifumis710/torneo-interno-2026
 
-- Título visible: **"Torneo Interno 2026"**.
-- Subtítulo / institución: **UTN Santa Fe**.
-- **2 zonas**, **7 equipos por zona** (14 equipos en total) — ver preguntas abiertas sobre si esto es fijo o dinámico.
-- Por cada equipo se muestra: **nombre, logo, puntos, partidos jugados (PJ), ganados (PG), empatados (PE), perdidos (PP), goles a favor (GF), goles en contra (GC)**, y afines (diferencia de gol, etc.).
-- **El profesor** agrega/edita todo mediante una interfaz fácil: crear zonas, agregar equipos a las zonas, subir logos, cargar estadísticas.
-- **Hosting:** Vercel.
-- **Base de datos:** sí (proveedor por definir; ver preguntas abiertas).
+## Arquitectura
 
-## Arquitectura (CONFIRMADA)
+- **Framework:** Next.js 16 (App Router) + TypeScript, en **Vercel** (auto-deploy desde `main`).
+- **Base de datos:** **Neon** Postgres (Marketplace de Vercel), vía `@neondatabase/serverless` con SQL parametrizado (sin ORM). Cliente en `lib/db.ts`, consultas en `lib/queries.ts`.
+- **Imágenes:** **Vercel Blob** (store **público** `torneo-logos-pub`). Normalización de logos con **sharp** en `lib/logo.ts` (PNG cuadrado 256px + quita de fondos planos por flood-fill).
+- **Auth admin:** contraseña única en env `ADMIN_PASSWORD`, cookie de sesión firmada (`lib/auth.ts`).
 
-Ver `docs/decisiones.md` (registro completo) y `docs/especificacion.md` (spec técnico + modelo de datos).
+### Mapa del código
+- `app/page.tsx` (server) → lee la base → `app/PublicView.tsx` (cliente) renderiza las pestañas.
+- `app/admin/page.tsx` (protegida) → panel; `app/admin/actions.ts` → server actions (ABM).
+- `app/tournament.css` (público) y `app/admin/admin.css` (admin); tokens/tema en `app/globals.css`.
+- `db/schema.sql` (idempotente) + `db/setup.mjs` (`npm run db:setup`).
 
-- **Framework:** Next.js (App Router) + TypeScript, en Vercel.
-- **Base de datos:** Vercel Postgres.
-- **Storage de imágenes:** Vercel Blob (logos de equipos y del torneo).
-- **Procesamiento de logos:** en el server al subir (unificar tamaño/formato a PNG cuadrado + quitar fondos planos por heurística; sin IA por ahora).
-- **Acceso admin:** contraseña única simple (env var) que protege `/admin`.
+## Puntos clave del producto (implementado)
 
-### Puntos clave del producto
-- **Todo es editable desde el admin**, incluido nombre y logo del torneo.
-- Tabla de posiciones **calculada automáticamente** desde los partidos cargados.
-- Estructura **configurable** (zonas y cantidad de equipos dinámicas; caso inicial 2×7).
-- **Playoffs sí o sí:** cada zona define cuántos clasifican, clasificados en **dorado semi-opaco**, y cruces editables por posición+zona (ej. 1°A vs 4°B).
-- Incluye **fixture por fechas** y **próximos partidos / resultados**.
+- **Todo editable desde el admin:** nombre/subtítulo/logo del torneo, zonas, equipos, jugadores, partidos y playoffs. Sin nombres de zona hardcodeados.
+- **Tabla de posiciones calculada sola** desde `matches` jugados (`computeStandings`). Desempate **Pts → DIF → GF**. Puntos configurables (3/1/0 por defecto).
+- **Estructura configurable:** zonas y cantidad de equipos dinámicas. Cada zona define cuántos clasifican → se pintan en **dorado**.
+- **Playoffs:** cruces editables por instancia (Cuartos/Semis/Final) con referencia (ej. 1°A), asignación de equipo y resultados. Avance de ganadores **manual**.
+- **Vista pública** con pestañas **Posiciones / Equipos / Fixture / Playoffs**, responsive y tema claro/oscuro.
 
-## Estado actual
+## Estado
 
-- 🟢 **Relevamiento cerrado.** Requisitos y arquitectura definidos.
-- 🟢 **Scaffold hecho.** App Next.js + TS creada; vista pública (posiciones/fixture/playoffs) con datos de ejemplo. `npm run build` OK.
-- 🔗 **Repo:** https://github.com/santifumis710/torneo-interno-2026
-- 🟢 **Base Neon creada** y esquema en `db/schema.sql`. Vista pública ya lee de la base (`lib/queries.ts` + `app/PublicView.tsx`), con estados vacíos.
-- ⚠️ **Los secretos se redactan en el entorno del agente** (`.env.local` trae `[SENSITIVE]`). No se puede correr `db:setup` ni conectar a la base localmente: **las tablas se crean pegando `db/schema.sql` en el SQL Editor de Neon**, y se prueba todo vía los deploys de Vercel.
-- 🟢 **Panel `/admin`** con login (`ADMIN_PASSWORD`) y ABM de: config del torneo, zonas, equipos, **jugadores**, **partidos** (la tabla y el fixture se recalculan solos) y **logos** (equipos y torneo, con normalización + quita de fondos planos vía `lib/logo.ts` + Vercel Blob).
-- 🟢 **Vista pública** con pestañas **Posiciones / Equipos / Fixture / Playoffs**.
-- 🟢 **Editor de playoffs** en el admin: crear/editar/borrar cruces por instancia (Cuartos/Semis/Final), con referencia editable (ej. 1°A), asignación de equipo y carga de resultados.
-- 🗄️ **Blob store activo (público):** `torneo-logos-pub` (usa `BLOB_READ_WRITE_TOKEN`). El store debe ser **público** para que las URLs de los logos se vean en el sitio. Tabla `players` agregada al esquema.
-- ✅ **Alcance planificado completo.** Posibles mejoras futuras: 3er puesto/más rondas, orden manual (drag), fecha/hora en fixture, goleadores.
+🟢 **Terminado según el alcance planificado y desplegado en producción.**
+Detalle de features y uso en `README.md` y `docs/guia-profesor.md`.
+
+Mejoras futuras posibles (no pedidas): 3er puesto/más rondas, fecha-hora en fixture, goleadores, orden manual de equipos/jugadores.
+
+## Notas operativas importantes
+
+- **El store de Blob debe ser PÚBLICO.** Con un store privado la subida de logos falla
+  (`Cannot use public access on a private store`). Store en uso: `torneo-logos-pub` (`BLOB_READ_WRITE_TOKEN`).
+- **Cambios de esquema:** editar `db/schema.sql` y ejecutarlo en el **SQL Editor de Neon** (es idempotente).
+- **Secretos redactados en el entorno del agente:** al hacer `vercel env pull`, los valores sensibles
+  llegan como `[SENSITIVE]`. Por eso no se puede correr `db:setup` ni conectar a la base desde el agente;
+  las tablas se crean pegando el SQL en Neon y se prueba vía deploys de Vercel.
 
 ## Reglas de trabajo para agentes
 
-1. **No construir la app** hasta cerrar las preguntas abiertas y tener el OK del usuario.
-2. Toda decisión de diseño/arquitectura se registra en `docs/decisiones.md`.
-3. El usuario habla español; responder en español.
-4. Prioridad #1 del producto: que **el profesor** pueda cargar datos sin fricción.
+1. El usuario habla español; responder en español.
+2. Registrar decisiones de diseño/arquitectura en `docs/decisiones.md`.
+3. No hardcodear datos del torneo (nombres de zonas, equipos, etc.): todo sale de la base.
+4. Verificar cambios con `npm run build` antes de commitear; las escrituras a la base se prueban en el deploy.
+5. Confirmar (o probar) con el usuario antes de dar por cerrado algo que toca la base o el deploy.

@@ -1,6 +1,8 @@
 # Especificación — Torneo Interno 2026
 
-Documento vivo con el alcance y el diseño técnico acordados. Base para construir.
+Documento del alcance y el diseño técnico. **Estado: implementado y desplegado** (ver `README.md`
+para el uso y `CLAUDE.md` para el mapa del código). El modelo de datos de abajo refleja lo que
+efectivamente existe en `db/schema.sql`.
 
 ## Stack
 
@@ -34,29 +36,33 @@ Documento vivo con el alcance y el diseño técnico acordados. Base para constru
 
 > Postgres. Nombres tentativos, se ajustan al implementar.
 
-- **settings**: `id`, `tournament_name`, `tournament_logo_url`.
-- **zones**: `id`, `name` (ej. "Zona A"), `qualifiers_count` (cuántos clasifican), `order`.
-- **teams**: `id`, `zone_id` (FK), `name`, `logo_url`.
-- **matches**: `id`, `zone_id` (FK, null si es de playoff), `home_team_id`, `away_team_id`,
-  `home_score`, `away_score`, `played` (bool), `matchday` (fecha/jornada), `scheduled_at` (fecha/hora opcional).
-- **playoff_slots / bracket**: representación de las llaves. Cada cruce referencia
-  o bien un **origen por posición+zona** (ej. pos 1 de Zona A) o bien el **ganador de otro cruce**.
-  Campos tentativos: `id`, `round` (cuartos/semi/final), `slot_home`, `slot_away`,
-  `home_source` (`{type: 'zone_position', zone_id, position}` | `{type: 'winner_of', match_id}`),
-  `away_source`, `home_score`, `away_score`, `order`.
+> **Modelo IMPLEMENTADO** (ver `db/schema.sql` y `lib/queries.ts`):
+
+- **settings**: `id` (siempre 1), `tournament_name`, `subtitle`, `logo_url`, `points_win`, `points_draw`.
+- **zones**: `id`, `name`, `qualifiers_count` (cuántos clasifican), `sort_order`.
+- **teams**: `id`, `zone_id` (FK, cascade), `name`, `logo_url`, `sort_order`.
+- **players**: `id`, `team_id` (FK, cascade), `name`, `number` (opcional), `sort_order`.
+- **matches**: `id`, `zone_id` (FK, cascade), `home_team_id`, `away_team_id`,
+  `home_score`, `away_score`, `played` (bool), `matchday`, `scheduled_at`, `created_at`.
+- **playoff_ties**: `id`, `round` (0=cuartos, 1=semi, 2=final), `sort_order`,
+  `home_label` / `away_label` (referencia editable, ej. "1°A"), `home_team_id` / `away_team_id`
+  (FK opcional, set null), `home_score`, `away_score`, `played`.
+  El cruce se resuelve manualmente por el profe (no hay avance automático de ganadores).
 
 ### Cálculo de la tabla
-La tabla NO se guarda: se **deriva** de `matches` con `played = true`.
-- Puntos: victoria = 3, empate = 1, derrota = 0 (ajustable).
-- Desempate por defecto: **Pts → DIF → GF** (a confirmar/ajustar).
+La tabla NO se guarda: se **deriva** de `matches` con `played = true` (`computeStandings` en `lib/queries.ts`).
+- Puntos: `points_win` por victoria, `points_draw` por empate, 0 por derrota (configurables en `settings`).
+- Desempate: **Pts → DIF → GF → nombre**.
+- Un partido cuenta como jugado cuando tiene los dos goles cargados.
 
-## Reglas de negocio a confirmar al construir
-- Puntos por victoria/empate (asumo 3/1/0).
-- Orden de criterios de desempate.
-- Qué pasa si un equipo se borra teniendo partidos cargados (bloquear / cascada).
+## Decisiones de negocio (implementadas)
+- Puntos por defecto **3 / 1 / 0** (editables desde el admin).
+- Desempate **Pts → DIF → GF**.
+- Borrar una zona/equipo **borra en cascada** lo que cuelga (equipos, jugadores, partidos).
+- Logos: normalización a PNG cuadrado 256px + quita de fondos planos por flood-fill (`lib/logo.ts`).
 
-## Fuera de alcance (por ahora)
-- Tabla de goleadores / estadísticas por jugador.
+## Fuera de alcance (implementación actual)
+- Tabla de goleadores / estadísticas por jugador (los jugadores solo se listan).
 - Tarjetas, sanciones.
-- Multi-idioma (solo español).
-- Roles múltiples de admin.
+- Avance automático de ganadores en el cuadro de playoffs (se carga a mano).
+- Multi-idioma (solo español) y roles múltiples de admin.
