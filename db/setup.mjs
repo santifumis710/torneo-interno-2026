@@ -2,11 +2,9 @@
 // Uso: tener DATABASE_URL en .env.local (o en el entorno) y correr `npm run db:setup`.
 import { readFileSync } from "node:fs";
 import { config } from "dotenv";
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import ws from "ws";
+import { neon } from "@neondatabase/serverless";
 
 config({ path: ".env.local" });
-neonConfig.webSocketConstructor = ws;
 
 const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 if (!url) {
@@ -14,15 +12,24 @@ if (!url) {
   process.exit(1);
 }
 
-const schema = readFileSync(new URL("./schema.sql", import.meta.url), "utf8");
-const pool = new Pool({ connectionString: url });
+const sql = neon(url);
+const raw = readFileSync(new URL("./schema.sql", import.meta.url), "utf8");
+
+// Quitamos líneas de comentario y separamos en sentencias individuales.
+const statements = raw
+  .split("\n")
+  .filter((line) => !line.trim().startsWith("--"))
+  .join("\n")
+  .split(";")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 try {
-  await pool.query(schema);
-  console.log("✔ Tablas creadas / actualizadas correctamente.");
+  for (const statement of statements) {
+    await sql.query(statement);
+  }
+  console.log(`✔ Tablas creadas / actualizadas (${statements.length} sentencias).`);
 } catch (err) {
   console.error("✗ Error creando las tablas:", err.message);
   process.exitCode = 1;
-} finally {
-  await pool.end();
 }
