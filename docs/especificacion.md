@@ -41,7 +41,7 @@ efectivamente existe en `db/schema.sql`.
 - **settings**: `id` (siempre 1), `tournament_name`, `subtitle`, `logo_url`, `points_win`, `points_draw`.
 - **zones**: `id`, `name`, `qualifiers_count` (cuántos clasifican), `sort_order`.
 - **teams**: `id`, `zone_id` (FK, cascade), `name`, `logo_url`, `sort_order`.
-- **players**: `id`, `team_id` (FK, cascade), `name`, `number` (opcional), `sort_order`.
+- **players**: `id`, `team_id` (FK, cascade), `name`, `number` (opcional), `photo_url` (opcional), `sort_order`.
 - **matches**: `id`, `zone_id` (FK, cascade), `home_team_id`, `away_team_id`,
   `home_score`, `away_score`, `played` (bool), `matchday`, `scheduled_at`, `created_at`.
 - **playoff_ties**: `id`, `round` (0=cuartos, 1=semi, 2=final), `sort_order`,

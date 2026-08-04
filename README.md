@@ -11,18 +11,21 @@ profesor desde un **panel de administración** — no hace falta tocar código.
 
 **Web pública** (`/`), en pestañas:
 - **Posiciones** — tabla por zona (PJ, G, E, P, GF, GC, DIF, Pts), ordenada por Pts → DIF → GF, con los clasificados en dorado.
-- **Equipos** — planteles por zona, cada equipo con su logo y jugadores.
-- **Fixture** — partidos por fecha con resultados (o "VS" si están pendientes).
+- **Equipos** — planteles por zona, cada equipo con su logo y jugadores (con foto).
+- **Fixture** — partidos ordenados por fecha y hora, con resultados (o "VS" si están pendientes).
 - **Playoffs** — cuadro Cuartos → Semifinales → Final.
+- **Mi equipo** — el visitante elige un equipo (se recuerda en el navegador) y ve su posición en la zona, estadísticas, próximos partidos y últimos resultados.
 - Responsive (celular y computadora) y tema claro/oscuro.
 
 **Panel `/admin`** (protegido por contraseña) — el profesor gestiona todo:
-- **Torneo:** nombre, subtítulo, puntaje (victoria/empate) y logo.
+- **Torneo:** nombre, subtítulo, puntaje (victoria/empate) y logo (se respeta tal cual, sin quitafondo).
 - **Zonas:** crear/renombrar/borrar y cuántos equipos clasifican (sin nombres fijos).
-- **Equipos:** crear/mover/borrar y subir logo (se normaliza solo).
-- **Jugadores:** alta/edición/borrado por equipo.
-- **Partidos:** cargar resultados → la tabla y el fixture se recalculan solos.
+- **Equipos:** crear/mover/borrar y subir logo (se normaliza y se le quita el fondo plano).
+- **Jugadores:** alta/edición/borrado por equipo, con **foto** opcional.
+- **Partidos:** cargar resultados, número de jornada y **fecha/hora** → la tabla y el fixture se recalculan solos.
 - **Playoffs:** definir cruces (ej. 1°A vs 4°B), asignar equipos y cargar resultados.
+
+Al reemplazar, quitar o borrar una imagen (logos y fotos), el archivo anterior se elimina del Vercel Blob para no dejar huérfanos.
 
 ## Stack
 
@@ -75,5 +78,5 @@ La tabla de posiciones **no se almacena**: se calcula desde `matches` (ver `lib/
 
 ## Posibles mejoras a futuro
 
-3er puesto / más rondas de playoffs · fecha y hora en el fixture · tabla de goleadores ·
+3er puesto / más rondas de playoffs · tabla de goleadores ·
 ordenar equipos y jugadores manualmente.
