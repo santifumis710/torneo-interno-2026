@@ -1,10 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./tournament.css";
-import type { PublicData, StandingRow, Team } from "@/lib/queries";
+import type { MatchRow, Player, PublicData, StandingRow, Team } from "@/lib/queries";
 
 const COLORS = ["#123a86", "#1f9d55", "#d94a3d", "#7a3fb0", "#0d8f9e", "#c85a12", "#334155", "#b02a5b"];
+
+const TZ = "America/Argentina/Buenos_Aires";
+
+/** Formatea la fecha/hora de un partido en horario de Argentina (ej. "sáb 09 ago · 18:30 hs"). */
+function formatMatchDateTime(iso: string): string {
+  const d = new Date(iso);
+  const fecha = new Intl.DateTimeFormat("es-AR", {
+    timeZone: TZ, weekday: "short", day: "2-digit", month: "short",
+  }).format(d);
+  const hora = new Intl.DateTimeFormat("es-AR", {
+    timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(d);
+  return `${fecha} · ${hora} hs`;
+}
 
 function initials(name: string) {
   return name
@@ -28,6 +42,18 @@ function TeamLogo({ team }: { team: Pick<Team, "name" | "logo_url"> }) {
   return (
     <span className="logo" style={{ background: colorFor(team.name) }}>
       {initials(team.name)}
+    </span>
+  );
+}
+
+function PlayerAvatar({ player }: { player: Pick<Player, "name" | "photo_url"> }) {
+  if (player.photo_url) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img className="pavatar pavatar-img" src={player.photo_url} alt={player.name} />;
+  }
+  return (
+    <span className="pavatar" style={{ background: colorFor(player.name) }}>
+      {initials(player.name)}
     </span>
   );
 }
@@ -96,17 +122,32 @@ function ZoneTable({ name, qualifiers, standings }: { name: string; qualifiers: 
 
 const ROUND_NAMES: Record<number, string> = { 0: "Cuartos", 1: "Semifinales", 2: "Final", 3: "Definición" };
 
-type TabKey = "posiciones" | "equipos" | "fixture" | "playoffs";
+type TabKey = "posiciones" | "equipos" | "fixture" | "playoffs" | "miequipo";
 const TAB_LABELS: Record<TabKey, string> = {
   posiciones: "Posiciones",
   equipos: "Equipos",
   fixture: "Fixture",
   playoffs: "Playoffs",
+  miequipo: "Mi equipo",
 };
+const TAB_ORDER: TabKey[] = ["posiciones", "equipos", "fixture", "playoffs", "miequipo"];
 
 export default function PublicView({ data }: { data: PublicData }) {
   const [tab, setTab] = useState<TabKey>("posiciones");
+  const [myTeamId, setMyTeamId] = useState<number | null>(null);
   const { settings, zones, ties, teamsById, playersByTeam } = data;
+
+  // Recupera el equipo elegido del navegador (queda pegado entre visitas).
+  useEffect(() => {
+    const saved = Number(localStorage.getItem("miEquipo"));
+    if (saved && teamsById[saved]) setMyTeamId(saved);
+  }, [teamsById]);
+
+  function chooseTeam(id: number | null) {
+    setMyTeamId(id);
+    if (id) localStorage.setItem("miEquipo", String(id));
+    else localStorage.removeItem("miEquipo");
+  }
 
   function toggleTheme() {
     const root = document.documentElement;
@@ -118,6 +159,32 @@ export default function PublicView({ data }: { data: PublicData }) {
 
   const nameOf = (id: number | null, label: string | null) =>
     (id !== null ? teamsById[id]?.name : null) ?? label ?? "Por definir";
+
+  const renderMatch = (m: MatchRow) => {
+    const pending = !m.played || m.home_score === null;
+    return (
+      <div className="match-wrap" key={m.id}>
+        {m.scheduled_at && <div className="match-date">{formatMatchDateTime(m.scheduled_at)}</div>}
+        <div className="match">
+          <div className="side home">
+            <span className="team-name">{nameOf(m.home_team_id, null)}</span>
+            <TeamLogo team={teamsById[m.home_team_id] ?? { name: "?", logo_url: null }} />
+          </div>
+          {pending ? (
+            <div className="score pending">VS</div>
+          ) : (
+            <div className="score">
+              {m.home_score} - {m.away_score}
+            </div>
+          )}
+          <div className="side away">
+            <TeamLogo team={teamsById[m.away_team_id] ?? { name: "?", logo_url: null }} />
+            <span className="team-name">{nameOf(m.away_team_id, null)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const rounds = [...new Set(ties.map((t) => t.round))].sort((a, b) => a - b);
   const anyMatches = zones.some((z) => z.matches.length > 0);
@@ -146,7 +213,7 @@ export default function PublicView({ data }: { data: PublicData }) {
 
       <main className="wrap">
         <div className="tabs" role="tablist">
-          {(["posiciones", "equipos", "fixture", "playoffs"] as const).map((t) => (
+          {TAB_ORDER.map((t) => (
             <button key={t} className="tab" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
               {TAB_LABELS[t]}
             </button>
@@ -197,6 +264,7 @@ export default function PublicView({ data }: { data: PublicData }) {
                               <ul className="roster">
                                 {roster.map((pl) => (
                                   <li key={pl.id}>
+                                    <PlayerAvatar player={pl} />
                                     <span className="pnum">{pl.number ?? "–"}</span>
                                     <span>{pl.name}</span>
                                   </li>
@@ -224,28 +292,7 @@ export default function PublicView({ data }: { data: PublicData }) {
                     <div className="card-head">
                       <h2>{z.zone.name}</h2>
                     </div>
-                    {z.matches.map((m) => {
-                      const pending = !m.played || m.home_score === null;
-                      return (
-                        <div className="match" key={m.id}>
-                          <div className="side home">
-                            <span className="team-name">{nameOf(m.home_team_id, null)}</span>
-                            <TeamLogo team={teamsById[m.home_team_id] ?? { name: "?", logo_url: null }} />
-                          </div>
-                          {pending ? (
-                            <div className="score pending">VS</div>
-                          ) : (
-                            <div className="score">
-                              {m.home_score} - {m.away_score}
-                            </div>
-                          )}
-                          <div className="side away">
-                            <TeamLogo team={teamsById[m.away_team_id] ?? { name: "?", logo_url: null }} />
-                            <span className="team-name">{nameOf(m.away_team_id, null)}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {z.matches.map(renderMatch)}
                   </div>
                 ))}
             </section>
@@ -289,6 +336,93 @@ export default function PublicView({ data }: { data: PublicData }) {
               </div>
             </section>
           ))}
+
+        {tab === "miequipo" && (() => {
+          const myZone = myTeamId != null ? zones.find((z) => z.teams.some((t) => t.id === myTeamId)) : undefined;
+          const myTeam = myTeamId != null ? teamsById[myTeamId] : undefined;
+          const idx = myZone ? myZone.standings.findIndex((r) => r.team.id === myTeamId) : -1;
+          const row = idx >= 0 ? myZone!.standings[idx] : undefined;
+          const teamMatches = myZone
+            ? myZone.matches.filter((m) => m.home_team_id === myTeamId || m.away_team_id === myTeamId)
+            : [];
+          const upcoming = teamMatches.filter((m) => !m.played || m.home_score === null);
+          const results = teamMatches.filter((m) => m.played && m.home_score !== null).reverse();
+
+          return (
+            <section className="panel">
+              <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+                <label className="me-label" htmlFor="me-select">Elegí tu equipo</label>
+                <select
+                  id="me-select"
+                  className="me-select"
+                  value={myTeamId ?? ""}
+                  onChange={(e) => chooseTeam(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">— Seleccionar equipo —</option>
+                  {zones
+                    .filter((z) => z.teams.length > 0)
+                    .map((z) => (
+                      <optgroup key={z.zone.id} label={z.zone.name}>
+                        {z.teams.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                </select>
+              </div>
+
+              {!myTeam ? (
+                <div className="card empty">Elegí un equipo para ver sus próximos partidos y estadísticas.</div>
+              ) : (
+                <>
+                  <div className="card me-head">
+                    <TeamLogo team={myTeam} />
+                    <div>
+                      <div className="me-name">{myTeam.name}</div>
+                      {myZone && (
+                        <div className="me-sub">
+                          {myZone.zone.name}
+                          {idx >= 0 && <> · {idx + 1}° {idx < myZone.zone.qualifiers_count && <span className="me-qual">Zona de clasificación</span>}</>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {row && (
+                    <div className="card me-stats">
+                      <div className="stat"><span className="s-val">{row.pts}</span><span className="s-lbl">Pts</span></div>
+                      <div className="stat"><span className="s-val">{row.pj}</span><span className="s-lbl">PJ</span></div>
+                      <div className="stat"><span className="s-val">{row.g}</span><span className="s-lbl">G</span></div>
+                      <div className="stat"><span className="s-val">{row.e}</span><span className="s-lbl">E</span></div>
+                      <div className="stat"><span className="s-val">{row.p}</span><span className="s-lbl">P</span></div>
+                      <div className="stat"><span className="s-val">{row.gf}</span><span className="s-lbl">GF</span></div>
+                      <div className="stat"><span className="s-val">{row.gc}</span><span className="s-lbl">GC</span></div>
+                      <div className="stat"><span className="s-val">{row.dif > 0 ? "+" : ""}{row.dif}</span><span className="s-lbl">DIF</span></div>
+                    </div>
+                  )}
+
+                  <div className="card">
+                    <div className="card-head"><h2>Próximos partidos</h2></div>
+                    {upcoming.length === 0 ? (
+                      <div className="empty">No hay partidos pendientes.</div>
+                    ) : (
+                      upcoming.map(renderMatch)
+                    )}
+                  </div>
+
+                  <div className="card">
+                    <div className="card-head"><h2>Últimos resultados</h2></div>
+                    {results.length === 0 ? (
+                      <div className="empty">Todavía no jugó ningún partido.</div>
+                    ) : (
+                      results.map(renderMatch)
+                    )}
+                  </div>
+                </>
+              )}
+            </section>
+          );
+        })()}
       </main>
     </>
   );

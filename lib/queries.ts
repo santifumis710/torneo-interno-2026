@@ -10,7 +10,7 @@ export type Settings = {
 
 export type Zone = { id: number; name: string; qualifiers_count: number; sort_order: number };
 export type Team = { id: number; zone_id: number; name: string; logo_url: string | null };
-export type Player = { id: number; team_id: number; name: string; number: number | null };
+export type Player = { id: number; team_id: number; name: string; number: number | null; photo_url: string | null };
 
 export type MatchRow = {
   id: number;
@@ -126,9 +126,9 @@ export async function getPublicData(): Promise<PublicData> {
     sql`SELECT tournament_name, subtitle, logo_url, points_win, points_draw FROM settings WHERE id = 1`,
     sql`SELECT id, name, qualifiers_count, sort_order FROM zones ORDER BY sort_order, id`,
     sql`SELECT id, zone_id, name, logo_url FROM teams ORDER BY sort_order, id`,
-    sql`SELECT id, zone_id, home_team_id, away_team_id, home_score, away_score, played, matchday, scheduled_at FROM matches ORDER BY matchday NULLS LAST, id`,
+    sql`SELECT id, zone_id, home_team_id, away_team_id, home_score, away_score, played, matchday, scheduled_at FROM matches ORDER BY scheduled_at NULLS LAST, matchday NULLS LAST, id`,
     sql`SELECT id, round, sort_order, home_label, away_label, home_team_id, away_team_id, home_score, away_score, played FROM playoff_ties ORDER BY round, sort_order, id`,
-    sql`SELECT id, team_id, name, number FROM players ORDER BY sort_order, id`,
+    sql`SELECT id, team_id, name, number, photo_url FROM players ORDER BY sort_order, id`,
   ])) as [Settings[], Zone[], Team[], MatchRow[], TieRow[], Player[]];
 
   const settings = settingsRows[0] ?? DEFAULT_SETTINGS;
@@ -168,8 +168,8 @@ export async function getAdminData(): Promise<AdminData> {
     sql`SELECT tournament_name, subtitle, logo_url, points_win, points_draw FROM settings WHERE id = 1`,
     sql`SELECT id, name, qualifiers_count, sort_order FROM zones ORDER BY sort_order, id`,
     sql`SELECT id, zone_id, name, logo_url FROM teams ORDER BY sort_order, id`,
-    sql`SELECT id, team_id, name, number FROM players ORDER BY sort_order, id`,
-    sql`SELECT id, zone_id, home_team_id, away_team_id, home_score, away_score, played, matchday, scheduled_at FROM matches ORDER BY matchday NULLS LAST, id`,
+    sql`SELECT id, team_id, name, number, photo_url FROM players ORDER BY sort_order, id`,
+    sql`SELECT id, zone_id, home_team_id, away_team_id, home_score, away_score, played, matchday, scheduled_at FROM matches ORDER BY scheduled_at NULLS LAST, matchday NULLS LAST, id`,
     sql`SELECT id, round, sort_order, home_label, away_label, home_team_id, away_team_id, home_score, away_score, played FROM playoff_ties ORDER BY round, sort_order, id`,
   ])) as [Settings[], Zone[], Team[], Player[], MatchRow[], TieRow[]];
 

@@ -72,6 +72,10 @@ CREATE TABLE IF NOT EXISTS players (
 );
 CREATE INDEX IF NOT EXISTS players_team_idx ON players(team_id);
 
+-- Migraciones aditivas (idempotentes) para bases ya creadas:
+ALTER TABLE players ADD COLUMN IF NOT EXISTS photo_url TEXT;        -- foto del jugador (Vercel Blob)
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ; -- fecha/hora del partido
+
 -- Semilla inicial: dos zonas para empezar (el profe puede renombrar/borrar/agregar).
 INSERT INTO zones (name, qualifiers_count, sort_order)
 SELECT 'Zona A', 4, 0 WHERE NOT EXISTS (SELECT 1 FROM zones);

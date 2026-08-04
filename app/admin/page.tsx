@@ -13,6 +13,8 @@ import {
   createPlayer,
   updatePlayer,
   deletePlayer,
+  uploadPlayerPhoto,
+  removePlayerPhoto,
   createMatch,
   updateMatch,
   deleteMatch,
@@ -33,6 +35,17 @@ const PLAYOFF_ROUNDS = [
 ];
 
 export const dynamic = "force-dynamic";
+
+/** ISO (TIMESTAMPTZ) → valor para <input type="datetime-local"> en hora local de Argentina. */
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const s = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(new Date(iso));
+  return s.replace(" ", "T");
+}
 
 export default async function AdminPage() {
   await requireAuth();
@@ -174,17 +187,38 @@ export default async function AdminPage() {
                     <div className="players">
                       <div className="lbl">Jugadores ({roster.length})</div>
                       {roster.map((pl) => (
-                        <div className="player-line" key={pl.id}>
-                          <form action={updatePlayer} className="player-edit">
-                            <input type="hidden" name="id" value={pl.id} />
-                            <input name="number" type="number" min={0} defaultValue={pl.number ?? ""} placeholder="#" />
-                            <input name="name" defaultValue={pl.name} required />
-                            <button className="btn btn-sec btn-xs" type="submit">Guardar</button>
-                          </form>
-                          <form action={deletePlayer}>
-                            <input type="hidden" name="id" value={pl.id} />
-                            <button className="btn-danger btn-xs" type="submit">✕</button>
-                          </form>
+                        <div className="player-block" key={pl.id}>
+                          <div className="player-line">
+                            {pl.photo_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img className="player-mini" src={pl.photo_url} alt={pl.name} />
+                            ) : (
+                              <span className="player-mini player-mini-ph">{pl.number ?? "?"}</span>
+                            )}
+                            <form action={updatePlayer} className="player-edit">
+                              <input type="hidden" name="id" value={pl.id} />
+                              <input name="number" type="number" min={0} defaultValue={pl.number ?? ""} placeholder="#" />
+                              <input name="name" defaultValue={pl.name} required />
+                              <button className="btn btn-sec btn-xs" type="submit">Guardar</button>
+                            </form>
+                            <form action={deletePlayer}>
+                              <input type="hidden" name="id" value={pl.id} />
+                              <button className="btn-danger btn-xs" type="submit">✕</button>
+                            </form>
+                          </div>
+                          <div className="logo-row" style={{ marginTop: 4 }}>
+                            <form action={uploadPlayerPhoto} className="logo-row" style={{ flex: 1, marginTop: 0 }}>
+                              <input type="hidden" name="id" value={pl.id} />
+                              <input type="file" name="photo" accept="image/*" required />
+                              <button className="btn btn-xs" type="submit">Subir foto</button>
+                            </form>
+                            {pl.photo_url && (
+                              <form action={removePlayerPhoto}>
+                                <input type="hidden" name="id" value={pl.id} />
+                                <button className="btn-danger btn-xs" type="submit">Quitar</button>
+                              </form>
+                            )}
+                          </div>
                         </div>
                       ))}
                       <form action={createPlayer} className="player-line">
@@ -252,7 +286,8 @@ export default async function AdminPage() {
                     <span className="mvs">:</span>
                     <input className="mscore" name="away_score" type="number" min={0} defaultValue={m.away_score ?? ""} placeholder="-" />
                     <span className="mt-name" style={{ flex: 1 }}>{teamName(m.away_team_id)}</span>
-                    <input className="mmd" name="matchday" type="number" min={1} defaultValue={m.matchday ?? ""} placeholder="Fecha" />
+                    <input className="mmd" name="matchday" type="number" min={1} defaultValue={m.matchday ?? ""} placeholder="Fecha nº" />
+                    <input className="mdt" name="scheduled_at" type="datetime-local" defaultValue={toLocalInput(m.scheduled_at)} />
                     <button className="btn btn-sec btn-xs" type="submit">Guardar</button>
                   </form>
                   <form action={deleteMatch}>
@@ -281,7 +316,8 @@ export default async function AdminPage() {
                       <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
                   </select>
-                  <input className="mmd" name="matchday" type="number" min={1} placeholder="Fecha" />
+                  <input className="mmd" name="matchday" type="number" min={1} placeholder="Fecha nº" />
+                  <input className="mdt" name="scheduled_at" type="datetime-local" />
                   <button className="btn btn-xs" type="submit">Agregar partido</button>
                 </form>
               )}

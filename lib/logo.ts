@@ -78,8 +78,24 @@ async function removeFlatBackground(input: Buffer): Promise<Buffer> {
   return sharp(data, { raw: { width: w, height: h, channels: 4 } }).png().toBuffer();
 }
 
-/** Normaliza un logo: quita fondo plano y devuelve un PNG cuadrado uniforme. */
-export async function normalizeLogo(input: Buffer): Promise<Buffer> {
+/**
+ * Normaliza la foto de un jugador: recorte cuadrado tipo "cover" (centrado),
+ * sin quita-fondo (arruinaría una foto real). Devuelve un JPEG cuadrado liviano.
+ */
+export async function normalizePhoto(input: Buffer): Promise<Buffer> {
+  return sharp(input)
+    .rotate() // respeta orientación EXIF
+    .resize(SIZE, SIZE, { fit: "cover", position: "attention" })
+    .jpeg({ quality: 82, mozjpeg: true })
+    .toBuffer();
+}
+
+/**
+ * Normaliza un logo: devuelve un PNG cuadrado uniforme (preservando transparencia).
+ * Con `removeBackground` (por defecto) quita el fondo plano por flood-fill; en false
+ * lo deja tal cual (para el logo del torneo, que no debe pasar por el quitafondo).
+ */
+export async function normalizeLogo(input: Buffer, removeBackground = true): Promise<Buffer> {
   // Primero achicamos (respetando orientación EXIF) para que el procesamiento
   // de píxeles sea liviano: como mucho SIZE×SIZE.
   const small = await sharp(input)
@@ -88,7 +104,7 @@ export async function normalizeLogo(input: Buffer): Promise<Buffer> {
     .png()
     .toBuffer();
 
-  const cleaned = await removeFlatBackground(small);
+  const cleaned = removeBackground ? await removeFlatBackground(small) : small;
 
   return sharp(cleaned)
     .resize(SIZE, SIZE, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })

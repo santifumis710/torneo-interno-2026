@@ -5,7 +5,18 @@ import { revalidatePath } from "next/cache";
 import { put } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { login, logout, requireAuth } from "@/lib/auth";
-import { normalizeLogo } from "@/lib/logo";
+import { normalizeLogo, normalizePhoto } from "@/lib/logo";
+
+/**
+ * Convierte el valor de un input datetime-local ("YYYY-MM-DDTHH:mm") en un
+ * timestamp con zona, interpretándolo como hora local de Argentina (UTC-3, sin
+ * horario de verano). Devuelve null si viene vacío.
+ */
+function parseScheduledAt(raw: string): string | null {
+  const v = raw.trim();
+  if (!v) return null;
+  return `${v.slice(0, 16)}:00-03:00`;
+}
 
 function refresh() {
   revalidatePath("/");
@@ -163,6 +174,27 @@ export async function deletePlayer(formData: FormData) {
   refresh();
 }
 
+export async function uploadPlayerPhoto(formData: FormData) {
+  await requireAuth();
+  const id = Number(formData.get("id"));
+  const file = formData.get("photo");
+  if (!id || !(file instanceof File) || file.size === 0) return;
+
+  const url = await processAndUpload(file, `player-${id}`, "photo");
+  const sql = db();
+  await sql`UPDATE players SET photo_url = ${url} WHERE id = ${id}`;
+  refresh();
+}
+
+export async function removePlayerPhoto(formData: FormData) {
+  await requireAuth();
+  const id = Number(formData.get("id"));
+  if (!id) return;
+  const sql = db();
+  await sql`UPDATE players SET photo_url = NULL WHERE id = ${id}`;
+  refresh();
+}
+
 /* ---------- Partidos ---------- */
 
 export async function createMatch(formData: FormData) {
@@ -172,12 +204,13 @@ export async function createMatch(formData: FormData) {
   const awayId = Number(formData.get("away_team_id"));
   const mdRaw = String(formData.get("matchday") ?? "").trim();
   const matchday = mdRaw === "" ? null : Number(mdRaw);
+  const scheduledAt = parseScheduledAt(String(formData.get("scheduled_at") ?? ""));
   if (!zoneId || !homeId || !awayId || homeId === awayId) return;
 
   const sql = db();
   await sql`
-    INSERT INTO matches (zone_id, home_team_id, away_team_id, matchday, played)
-    VALUES (${zoneId}, ${homeId}, ${awayId}, ${matchday}, FALSE)`;
+    INSERT INTO matches (zone_id, home_team_id, away_team_id, matchday, scheduled_at, played)
+    VALUES (${zoneId}, ${homeId}, ${awayId}, ${matchday}, ${scheduledAt}, FALSE)`;
   refresh();
 }
 
@@ -189,6 +222,7 @@ export async function updateMatch(formData: FormData) {
   const awayRaw = String(formData.get("away_score") ?? "").trim();
   const mdRaw = String(formData.get("matchday") ?? "").trim();
   const matchday = mdRaw === "" ? null : Number(mdRaw);
+  const scheduledAt = parseScheduledAt(String(formData.get("scheduled_at") ?? ""));
 
   // Si están los dos goles, el partido cuenta como jugado; si no, queda pendiente.
   const bothScores = homeRaw !== "" && awayRaw !== "";
@@ -198,7 +232,8 @@ export async function updateMatch(formData: FormData) {
   const sql = db();
   await sql`
     UPDATE matches
-    SET home_score = ${homeScore}, away_score = ${awayScore}, played = ${bothScores}, matchday = ${matchday}
+    SET home_score = ${homeScore}, away_score = ${awayScore}, played = ${bothScores},
+        matchday = ${matchday}, scheduled_at = ${scheduledAt}
     WHERE id = ${id}`;
   refresh();
 }
@@ -214,17 +249,30 @@ export async function deleteMatch(formData: FormData) {
 
 /* ---------- Logos (Vercel Blob + normalización) ---------- */
 
-async function processAndUpload(file: File, prefix: string): Promise<string> {
+async function processAndUpload(
+  file: File,
+  prefix: string,
+  kind: "logo" | "logo-keepbg" | "photo" = "logo",
+): Promise<string> {
   try {
     const raw = Buffer.from(await file.arrayBuffer());
-    const png = await normalizeLogo(raw);
+    if (kind === "photo") {
+      const jpg = await normalizePhoto(raw);
+      const { url } = await put(`photos/${prefix}-${Date.now()}.jpg`, jpg, {
+        access: "public",
+        contentType: "image/jpeg",
+      });
+      return url;
+    }
+    // "logo" quita el fondo plano; "logo-keepbg" lo deja tal cual (logo del torneo).
+    const png = await normalizeLogo(raw, kind === "logo");
     const { url } = await put(`logos/${prefix}-${Date.now()}.png`, png, {
       access: "public",
       contentType: "image/png",
     });
     return url;
   } catch (err) {
-    console.error(`Error subiendo logo (${prefix}):`, err);
+    console.error(`Error subiendo imagen (${kind}/${prefix}):`, err);
     throw err;
   }
 }
@@ -255,7 +303,7 @@ export async function uploadTournamentLogo(formData: FormData) {
   const file = formData.get("logo");
   if (!(file instanceof File) || file.size === 0) return;
 
-  const url = await processAndUpload(file, "tournament");
+  const url = await processAndUpload(file, "tournament", "logo-keepbg");
   const sql = db();
   await sql`UPDATE settings SET logo_url = ${url} WHERE id = 1`;
   refresh();
