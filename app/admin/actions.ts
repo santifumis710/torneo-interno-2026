@@ -267,3 +267,54 @@ export async function removeTournamentLogo() {
   await sql`UPDATE settings SET logo_url = NULL WHERE id = 1`;
   refresh();
 }
+
+/* ---------- Playoffs (cruces del cuadro) ---------- */
+
+export async function createTie(formData: FormData) {
+  await requireAuth();
+  const round = Number(formData.get("round"));
+  const homeLabel = String(formData.get("home_label") ?? "").trim() || null;
+  const awayLabel = String(formData.get("away_label") ?? "").trim() || null;
+  if (!Number.isFinite(round)) return;
+
+  const sql = db();
+  await sql`
+    INSERT INTO playoff_ties (round, sort_order, home_label, away_label, played)
+    VALUES (${round}, COALESCE((SELECT MAX(sort_order) + 1 FROM playoff_ties WHERE round = ${round}), 0),
+            ${homeLabel}, ${awayLabel}, FALSE)`;
+  refresh();
+}
+
+export async function updateTie(formData: FormData) {
+  await requireAuth();
+  const id = Number(formData.get("id"));
+  if (!id) return;
+  const homeLabel = String(formData.get("home_label") ?? "").trim() || null;
+  const awayLabel = String(formData.get("away_label") ?? "").trim() || null;
+  const homeTeam = Number(formData.get("home_team_id")) || null;
+  const awayTeam = Number(formData.get("away_team_id")) || null;
+  const homeRaw = String(formData.get("home_score") ?? "").trim();
+  const awayRaw = String(formData.get("away_score") ?? "").trim();
+
+  const bothScores = homeRaw !== "" && awayRaw !== "";
+  const homeScore = bothScores ? Number(homeRaw) : null;
+  const awayScore = bothScores ? Number(awayRaw) : null;
+
+  const sql = db();
+  await sql`
+    UPDATE playoff_ties
+    SET home_label = ${homeLabel}, away_label = ${awayLabel},
+        home_team_id = ${homeTeam}, away_team_id = ${awayTeam},
+        home_score = ${homeScore}, away_score = ${awayScore}, played = ${bothScores}
+    WHERE id = ${id}`;
+  refresh();
+}
+
+export async function deleteTie(formData: FormData) {
+  await requireAuth();
+  const id = Number(formData.get("id"));
+  if (!id) return;
+  const sql = db();
+  await sql`DELETE FROM playoff_ties WHERE id = ${id}`;
+  refresh();
+}

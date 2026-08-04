@@ -158,21 +158,23 @@ export type AdminData = {
   teams: Team[];
   playersByTeam: Record<number, Player[]>;
   matches: MatchRow[];
+  ties: TieRow[];
 };
 
 /** Trae todo lo necesario para el panel de administración. */
 export async function getAdminData(): Promise<AdminData> {
   const sql = db();
-  const [settingsRows, zones, teams, players, matches] = (await Promise.all([
+  const [settingsRows, zones, teams, players, matches, ties] = (await Promise.all([
     sql`SELECT tournament_name, subtitle, logo_url, points_win, points_draw FROM settings WHERE id = 1`,
     sql`SELECT id, name, qualifiers_count, sort_order FROM zones ORDER BY sort_order, id`,
     sql`SELECT id, zone_id, name, logo_url FROM teams ORDER BY sort_order, id`,
     sql`SELECT id, team_id, name, number FROM players ORDER BY sort_order, id`,
     sql`SELECT id, zone_id, home_team_id, away_team_id, home_score, away_score, played, matchday, scheduled_at FROM matches ORDER BY matchday NULLS LAST, id`,
-  ])) as [Settings[], Zone[], Team[], Player[], MatchRow[]];
+    sql`SELECT id, round, sort_order, home_label, away_label, home_team_id, away_team_id, home_score, away_score, played FROM playoff_ties ORDER BY round, sort_order, id`,
+  ])) as [Settings[], Zone[], Team[], Player[], MatchRow[], TieRow[]];
 
   const playersByTeam: Record<number, Player[]> = {};
   for (const p of players) (playersByTeam[p.team_id] ??= []).push(p);
 
-  return { settings: settingsRows[0] ?? DEFAULT_SETTINGS, zones, teams, playersByTeam, matches };
+  return { settings: settingsRows[0] ?? DEFAULT_SETTINGS, zones, teams, playersByTeam, matches, ties };
 }

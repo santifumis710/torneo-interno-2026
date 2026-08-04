@@ -20,14 +20,23 @@ import {
   removeTeamLogo,
   uploadTournamentLogo,
   removeTournamentLogo,
+  createTie,
+  updateTie,
+  deleteTie,
   logoutAction,
 } from "./actions";
+
+const PLAYOFF_ROUNDS = [
+  { round: 0, name: "Cuartos" },
+  { round: 1, name: "Semifinales" },
+  { round: 2, name: "Final" },
+];
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   await requireAuth();
-  const { settings, zones, teams, playersByTeam, matches } = await getAdminData();
+  const { settings, zones, teams, playersByTeam, matches, ties } = await getAdminData();
   const teamName = (id: number) => teams.find((t) => t.id === id)?.name ?? "?";
 
   return (
@@ -276,6 +285,63 @@ export default async function AdminPage() {
                   <button className="btn btn-xs" type="submit">Agregar partido</button>
                 </form>
               )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Playoffs */}
+      <div className="a-card">
+        <h2>Playoffs</h2>
+        <p className="hint">
+          Definí los cruces (podés escribir la referencia, ej. <b>1°A</b>, y/o asignar el equipo).
+          Con los dos goles, el cruce queda resuelto. El cuadro se ve en la web.
+        </p>
+
+        {PLAYOFF_ROUNDS.map(({ round, name }) => {
+          const roundTies = ties.filter((t) => t.round === round);
+          return (
+            <div className="zone-sub" key={round}>
+              <h3>{name}</h3>
+
+              {roundTies.length === 0 && <p className="hint">Sin cruces en esta instancia.</p>}
+              {roundTies.map((t) => (
+                <div className="tie-line" key={t.id}>
+                  <form action={updateTie} className="tie-edit">
+                    <input type="hidden" name="id" value={t.id} />
+                    <input className="tlabel" name="home_label" defaultValue={t.home_label ?? ""} placeholder="1°A" />
+                    <select name="home_team_id" defaultValue={t.home_team_id ?? ""}>
+                      <option value="">— equipo —</option>
+                      {teams.map((tm) => (
+                        <option key={tm.id} value={tm.id}>{tm.name}</option>
+                      ))}
+                    </select>
+                    <input className="mscore" name="home_score" type="number" min={0} defaultValue={t.home_score ?? ""} placeholder="-" />
+                    <span className="mvs">:</span>
+                    <input className="mscore" name="away_score" type="number" min={0} defaultValue={t.away_score ?? ""} placeholder="-" />
+                    <select name="away_team_id" defaultValue={t.away_team_id ?? ""}>
+                      <option value="">— equipo —</option>
+                      {teams.map((tm) => (
+                        <option key={tm.id} value={tm.id}>{tm.name}</option>
+                      ))}
+                    </select>
+                    <input className="tlabel" name="away_label" defaultValue={t.away_label ?? ""} placeholder="4°B" />
+                    <button className="btn btn-sec btn-xs" type="submit">Guardar</button>
+                  </form>
+                  <form action={deleteTie}>
+                    <input type="hidden" name="id" value={t.id} />
+                    <button className="btn-danger btn-xs" type="submit">✕</button>
+                  </form>
+                </div>
+              ))}
+
+              <form action={createTie} className="tie-add">
+                <input type="hidden" name="round" value={round} />
+                <input className="tlabel" name="home_label" placeholder="Local" />
+                <span className="mvs">vs</span>
+                <input className="tlabel" name="away_label" placeholder="Visitante" />
+                <button className="btn btn-xs" type="submit">Agregar cruce</button>
+              </form>
             </div>
           );
         })}
