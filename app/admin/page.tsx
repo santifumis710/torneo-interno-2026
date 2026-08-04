@@ -13,6 +13,9 @@ import {
   createPlayer,
   updatePlayer,
   deletePlayer,
+  createMatch,
+  updateMatch,
+  deleteMatch,
   logoutAction,
 } from "./actions";
 
@@ -20,7 +23,8 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   await requireAuth();
-  const { settings, zones, teams, playersByTeam } = await getAdminData();
+  const { settings, zones, teams, playersByTeam, matches } = await getAdminData();
+  const teamName = (id: number) => teams.find((t) => t.id === id)?.name ?? "?";
 
   return (
     <div className="admin-wrap">
@@ -174,12 +178,68 @@ export default async function AdminPage() {
         </form>
       </div>
 
+      {/* Partidos */}
       <div className="a-card">
-        <h2>Próximamente</h2>
-        <p className="hint">
-          En los siguientes pasos: subir logos de equipos y del torneo, cargar partidos (la tabla se
-          calcula sola) y armar los cruces de playoffs.
-        </p>
+        <h2>Partidos</h2>
+        <p className="hint">Cargá los resultados. La tabla de posiciones y el fixture se actualizan solos.</p>
+
+        {zones.length === 0 && <p className="hint">Primero creá zonas y equipos.</p>}
+
+        {zones.map((zone) => {
+          const zoneTeams = teams.filter((t) => t.zone_id === zone.id);
+          const zoneMatches = matches.filter((m) => m.zone_id === zone.id);
+          return (
+            <div className="zone-sub" key={zone.id}>
+              <h3>{zone.name}</h3>
+
+              {zoneMatches.length === 0 && <p className="hint">Sin partidos en esta zona.</p>}
+              {zoneMatches.map((m) => (
+                <div className="match-line" key={m.id}>
+                  <form action={updateMatch} className="match-edit">
+                    <input type="hidden" name="id" value={m.id} />
+                    <span className="mt-name" style={{ flex: 1, textAlign: "right" }}>
+                      {teamName(m.home_team_id)}
+                    </span>
+                    <input className="mscore" name="home_score" type="number" min={0} defaultValue={m.home_score ?? ""} placeholder="-" />
+                    <span className="mvs">:</span>
+                    <input className="mscore" name="away_score" type="number" min={0} defaultValue={m.away_score ?? ""} placeholder="-" />
+                    <span className="mt-name" style={{ flex: 1 }}>{teamName(m.away_team_id)}</span>
+                    <input className="mmd" name="matchday" type="number" min={1} defaultValue={m.matchday ?? ""} placeholder="Fecha" />
+                    <button className="btn btn-sec btn-xs" type="submit">Guardar</button>
+                  </form>
+                  <form action={deleteMatch}>
+                    <input type="hidden" name="id" value={m.id} />
+                    <button className="btn-danger btn-xs" type="submit">✕</button>
+                  </form>
+                </div>
+              ))}
+
+              {/* Agregar partido */}
+              {zoneTeams.length < 2 ? (
+                <p className="hint">Necesitás al menos 2 equipos en la zona para cargar un partido.</p>
+              ) : (
+                <form action={createMatch} className="match-add">
+                  <input type="hidden" name="zone_id" value={zone.id} />
+                  <select name="home_team_id" defaultValue="" required>
+                    <option value="" disabled>Local</option>
+                    {zoneTeams.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <span className="mvs">vs</span>
+                  <select name="away_team_id" defaultValue="" required>
+                    <option value="" disabled>Visitante</option>
+                    {zoneTeams.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <input className="mmd" name="matchday" type="number" min={1} placeholder="Fecha" />
+                  <button className="btn btn-xs" type="submit">Agregar partido</button>
+                </form>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

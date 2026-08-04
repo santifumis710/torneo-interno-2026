@@ -160,3 +160,52 @@ export async function deletePlayer(formData: FormData) {
   await sql`DELETE FROM players WHERE id = ${id}`;
   refresh();
 }
+
+/* ---------- Partidos ---------- */
+
+export async function createMatch(formData: FormData) {
+  await requireAuth();
+  const zoneId = Number(formData.get("zone_id"));
+  const homeId = Number(formData.get("home_team_id"));
+  const awayId = Number(formData.get("away_team_id"));
+  const mdRaw = String(formData.get("matchday") ?? "").trim();
+  const matchday = mdRaw === "" ? null : Number(mdRaw);
+  if (!zoneId || !homeId || !awayId || homeId === awayId) return;
+
+  const sql = db();
+  await sql`
+    INSERT INTO matches (zone_id, home_team_id, away_team_id, matchday, played)
+    VALUES (${zoneId}, ${homeId}, ${awayId}, ${matchday}, FALSE)`;
+  refresh();
+}
+
+export async function updateMatch(formData: FormData) {
+  await requireAuth();
+  const id = Number(formData.get("id"));
+  if (!id) return;
+  const homeRaw = String(formData.get("home_score") ?? "").trim();
+  const awayRaw = String(formData.get("away_score") ?? "").trim();
+  const mdRaw = String(formData.get("matchday") ?? "").trim();
+  const matchday = mdRaw === "" ? null : Number(mdRaw);
+
+  // Si están los dos goles, el partido cuenta como jugado; si no, queda pendiente.
+  const bothScores = homeRaw !== "" && awayRaw !== "";
+  const homeScore = bothScores ? Number(homeRaw) : null;
+  const awayScore = bothScores ? Number(awayRaw) : null;
+
+  const sql = db();
+  await sql`
+    UPDATE matches
+    SET home_score = ${homeScore}, away_score = ${awayScore}, played = ${bothScores}, matchday = ${matchday}
+    WHERE id = ${id}`;
+  refresh();
+}
+
+export async function deleteMatch(formData: FormData) {
+  await requireAuth();
+  const id = Number(formData.get("id"));
+  if (!id) return;
+  const sql = db();
+  await sql`DELETE FROM matches WHERE id = ${id}`;
+  refresh();
+}
