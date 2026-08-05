@@ -20,6 +20,13 @@ function formatMatchDateTime(iso: string): string {
   return `${fecha} · ${hora} hs`;
 }
 
+/** Etiqueta de día para agrupar el fixture (ej. "sábado 09 de agosto"). */
+function formatMatchDay(iso: string): string {
+  return new Intl.DateTimeFormat("es-AR", {
+    timeZone: TZ, weekday: "long", day: "2-digit", month: "long",
+  }).format(new Date(iso));
+}
+
 function initials(name: string) {
   return name
     .split(" ")
@@ -132,8 +139,16 @@ const TAB_LABELS: Record<TabKey, string> = {
 };
 const TAB_ORDER: TabKey[] = ["posiciones", "equipos", "fixture", "playoffs", "miequipo"];
 
+type FixtureSort = "zona" | "fecha" | "dia";
+const FIXTURE_SORT_LABELS: Record<FixtureSort, string> = {
+  zona: "Por zona",
+  fecha: "Por fecha",
+  dia: "Por día/hora",
+};
+
 export default function PublicView({ data }: { data: PublicData }) {
   const [tab, setTab] = useState<TabKey>("posiciones");
+  const [fixtureSort, setFixtureSort] = useState<FixtureSort>("zona");
   const [myTeamId, setMyTeamId] = useState<number | null>(null);
   const { settings, zones, ties, teamsById, playersByTeam } = data;
 
@@ -160,11 +175,16 @@ export default function PublicView({ data }: { data: PublicData }) {
   const nameOf = (id: number | null, label: string | null) =>
     (id !== null ? teamsById[id]?.name : null) ?? label ?? "Por definir";
 
-  const renderMatch = (m: MatchRow) => {
+  const renderMatch = (m: MatchRow, zoneName?: string) => {
     const pending = !m.played || m.home_score === null;
     return (
       <div className="match-wrap" key={m.id}>
-        {m.scheduled_at && <div className="match-date">{formatMatchDateTime(m.scheduled_at)}</div>}
+        {(m.scheduled_at || zoneName) && (
+          <div className="match-meta">
+            {m.scheduled_at && <span className="match-date">{formatMatchDateTime(m.scheduled_at)}</span>}
+            {zoneName && <span className="match-zone">{zoneName}</span>}
+          </div>
+        )}
         <div className="match">
           <div className="side home">
             <span className="team-name">{nameOf(m.home_team_id, null)}</span>
@@ -188,6 +208,58 @@ export default function PublicView({ data }: { data: PublicData }) {
 
   const rounds = [...new Set(ties.map((t) => t.round))].sort((a, b) => a - b);
   const anyMatches = zones.some((z) => z.matches.length > 0);
+
+  // Agrupa los partidos del fixture según el modo elegido (zona, fecha/jornada o día/hora).
+  type FixtureItem = { m: MatchRow; zoneName: string };
+  type FixtureGroup = { key: string; title: string; showZone: boolean; items: FixtureItem[] };
+  const allFixtureItems: FixtureItem[] = zones.flatMap((z) =>
+    z.matches.map((m) => ({ m, zoneName: z.zone.name })),
+  );
+  const timeOf = (m: MatchRow) => (m.scheduled_at ? new Date(m.scheduled_at).getTime() : Infinity);
+
+  let fixtureGroups: FixtureGroup[] = [];
+  if (fixtureSort === "zona") {
+    fixtureGroups = zones
+      .filter((z) => z.matches.length > 0)
+      .map((z) => ({
+        key: `z${z.zone.id}`,
+        title: z.zone.name,
+        showZone: false,
+        items: z.matches.map((m) => ({ m, zoneName: z.zone.name })),
+      }));
+  } else if (fixtureSort === "fecha") {
+    const byDay = new Map<number | null, FixtureItem[]>();
+    for (const it of allFixtureItems) {
+      const key = it.m.matchday ?? null;
+      (byDay.get(key) ?? byDay.set(key, []).get(key)!).push(it);
+    }
+    const keys = [...byDay.keys()].sort((a, b) => {
+      if (a === null) return 1;
+      if (b === null) return -1;
+      return a - b;
+    });
+    fixtureGroups = keys.map((k) => ({
+      key: `f${k ?? "none"}`,
+      title: k === null ? "Sin fecha asignada" : `Fecha ${k}`,
+      showZone: true,
+      items: byDay.get(k)!.slice().sort((x, y) => timeOf(x.m) - timeOf(y.m)),
+    }));
+  } else {
+    const byDate = new Map<string, FixtureItem[]>();
+    for (const it of allFixtureItems) {
+      const key = it.m.scheduled_at ? formatMatchDay(it.m.scheduled_at) : "￿Sin día asignado";
+      (byDate.get(key) ?? byDate.set(key, []).get(key)!).push(it);
+    }
+    const sorted = [...byDate.entries()].sort(
+      ([, a], [, b]) => timeOf(a[0].m) - timeOf(b[0].m),
+    );
+    fixtureGroups = sorted.map(([title, items]) => ({
+      key: `d${title}`,
+      title: title.startsWith("￿") ? "Sin día asignado" : title[0].toUpperCase() + title.slice(1),
+      showZone: true,
+      items: items.slice().sort((x, y) => timeOf(x.m) - timeOf(y.m)),
+    }));
+  }
   const anyTeams = zones.some((z) => z.teams.length > 0);
 
   return (
@@ -285,16 +357,28 @@ export default function PublicView({ data }: { data: PublicData }) {
             <div className="card empty">Todavía no hay partidos cargados.</div>
           ) : (
             <section className="panel">
-              {zones
-                .filter((z) => z.matches.length > 0)
-                .map((z) => (
-                  <div className="card" key={z.zone.id}>
-                    <div className="card-head">
-                      <h2>{z.zone.name}</h2>
-                    </div>
-                    {z.matches.map(renderMatch)}
-                  </div>
+              <div className="fixture-controls" role="group" aria-label="Ordenar fixture">
+                {(Object.keys(FIXTURE_SORT_LABELS) as FixtureSort[]).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    className={`chip ${fixtureSort === k ? "active" : ""}`}
+                    aria-pressed={fixtureSort === k}
+                    onClick={() => setFixtureSort(k)}
+                  >
+                    {FIXTURE_SORT_LABELS[k]}
+                  </button>
                 ))}
+              </div>
+
+              {fixtureGroups.map((group) => (
+                <div className="card" key={group.key}>
+                  <div className="card-head">
+                    <h2>{group.title}</h2>
+                  </div>
+                  {group.items.map(({ m, zoneName }) => renderMatch(m, group.showZone ? zoneName : undefined))}
+                </div>
+              ))}
             </section>
           ))}
 
@@ -406,7 +490,7 @@ export default function PublicView({ data }: { data: PublicData }) {
                     {upcoming.length === 0 ? (
                       <div className="empty">No hay partidos pendientes.</div>
                     ) : (
-                      upcoming.map(renderMatch)
+                      upcoming.map((m) => renderMatch(m))
                     )}
                   </div>
 
@@ -415,7 +499,7 @@ export default function PublicView({ data }: { data: PublicData }) {
                     {results.length === 0 ? (
                       <div className="empty">Todavía no jugó ningún partido.</div>
                     ) : (
-                      results.map(renderMatch)
+                      results.map((m) => renderMatch(m))
                     )}
                   </div>
                 </>
