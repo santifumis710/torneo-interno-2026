@@ -177,10 +177,12 @@ export default function PublicView({ data }: { data: PublicData }) {
 
   const renderMatch = (m: MatchRow, zoneName?: string) => {
     const pending = !m.played || m.home_score === null;
+    const hasMeta = m.scheduled_at || zoneName || m.matchday != null;
     return (
       <div className="match-wrap" key={m.id}>
-        {(m.scheduled_at || zoneName) && (
+        {hasMeta && (
           <div className="match-meta">
+            {m.matchday != null && <span className="match-fecha">Fecha {m.matchday}</span>}
             {m.scheduled_at && <span className="match-date">{formatMatchDateTime(m.scheduled_at)}</span>}
             {zoneName && <span className="match-zone">{zoneName}</span>}
           </div>
@@ -211,7 +213,7 @@ export default function PublicView({ data }: { data: PublicData }) {
 
   // Agrupa los partidos del fixture según el modo elegido (zona, fecha/jornada o día/hora).
   type FixtureItem = { m: MatchRow; zoneName: string };
-  type FixtureGroup = { key: string; title: string; showZone: boolean; items: FixtureItem[] };
+  type FixtureGroup = { key: string; title: string; items: FixtureItem[] };
   const allFixtureItems: FixtureItem[] = zones.flatMap((z) =>
     z.matches.map((m) => ({ m, zoneName: z.zone.name })),
   );
@@ -224,7 +226,6 @@ export default function PublicView({ data }: { data: PublicData }) {
       .map((z) => ({
         key: `z${z.zone.id}`,
         title: z.zone.name,
-        showZone: false,
         items: z.matches.map((m) => ({ m, zoneName: z.zone.name })),
       }));
   } else if (fixtureSort === "fecha") {
@@ -241,7 +242,6 @@ export default function PublicView({ data }: { data: PublicData }) {
     fixtureGroups = keys.map((k) => ({
       key: `f${k ?? "none"}`,
       title: k === null ? "Sin fecha asignada" : `Fecha ${k}`,
-      showZone: true,
       items: byDay.get(k)!.slice().sort((x, y) => timeOf(x.m) - timeOf(y.m)),
     }));
   } else {
@@ -256,7 +256,6 @@ export default function PublicView({ data }: { data: PublicData }) {
     fixtureGroups = sorted.map(([title, items]) => ({
       key: `d${title}`,
       title: title.startsWith("￿") ? "Sin día asignado" : title[0].toUpperCase() + title.slice(1),
-      showZone: true,
       items: items.slice().sort((x, y) => timeOf(x.m) - timeOf(y.m)),
     }));
   }
@@ -376,7 +375,7 @@ export default function PublicView({ data }: { data: PublicData }) {
                   <div className="card-head">
                     <h2>{group.title}</h2>
                   </div>
-                  {group.items.map(({ m, zoneName }) => renderMatch(m, group.showZone ? zoneName : undefined))}
+                  {group.items.map(({ m, zoneName }) => renderMatch(m, zoneName))}
                 </div>
               ))}
             </section>
