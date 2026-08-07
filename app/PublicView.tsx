@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import "./tournament.css";
 import type { MatchRow, Player, PublicData, StandingRow, Team } from "@/lib/queries";
 
@@ -129,15 +129,15 @@ function ZoneTable({ name, qualifiers, standings }: { name: string; qualifiers: 
 
 const ROUND_NAMES: Record<number, string> = { 0: "Cuartos", 1: "Semifinales", 2: "Final", 3: "Definición" };
 
-type TabKey = "posiciones" | "equipos" | "fixture" | "playoffs" | "miequipo";
+type TabKey = "posiciones" | "equipos" | "fixture" | "playoffs" | "historial";
 const TAB_LABELS: Record<TabKey, string> = {
   posiciones: "Posiciones",
   equipos: "Equipos",
   fixture: "Fixture",
   playoffs: "Playoffs",
-  miequipo: "Mi equipo",
+  historial: "Historial",
 };
-const TAB_ORDER: TabKey[] = ["posiciones", "equipos", "fixture", "playoffs", "miequipo"];
+const TAB_ORDER: TabKey[] = ["posiciones", "equipos", "fixture", "playoffs", "historial"];
 
 type FixtureSort = "zona" | "fecha" | "dia";
 const FIXTURE_SORT_LABELS: Record<FixtureSort, string> = {
@@ -149,20 +149,8 @@ const FIXTURE_SORT_LABELS: Record<FixtureSort, string> = {
 export default function PublicView({ data }: { data: PublicData }) {
   const [tab, setTab] = useState<TabKey>("posiciones");
   const [fixtureSort, setFixtureSort] = useState<FixtureSort>("zona");
-  const [myTeamId, setMyTeamId] = useState<number | null>(null);
-  const { settings, zones, ties, teamsById, playersByTeam } = data;
-
-  // Recupera el equipo elegido del navegador (queda pegado entre visitas).
-  useEffect(() => {
-    const saved = Number(localStorage.getItem("miEquipo"));
-    if (saved && teamsById[saved]) setMyTeamId(saved);
-  }, [teamsById]);
-
-  function chooseTeam(id: number | null) {
-    setMyTeamId(id);
-    if (id) localStorage.setItem("miEquipo", String(id));
-    else localStorage.removeItem("miEquipo");
-  }
+  const [fixtureTeamId, setFixtureTeamId] = useState<number | null>(null);
+  const { settings, zones, ties, teamsById, playersByTeam, champions } = data;
 
   function toggleTheme() {
     const root = document.documentElement;
@@ -218,9 +206,22 @@ export default function PublicView({ data }: { data: PublicData }) {
     z.matches.map((m) => ({ m, zoneName: z.zone.name })),
   );
   const timeOf = (m: MatchRow) => (m.scheduled_at ? new Date(m.scheduled_at).getTime() : Infinity);
+  const mdOf = (m: MatchRow) => m.matchday ?? Infinity;
 
   let fixtureGroups: FixtureGroup[] = [];
-  if (fixtureSort === "zona") {
+  if (fixtureTeamId !== null) {
+    // Filtro por equipo: una sola lista con todos sus partidos ordenados por fecha (1, 2, 3…).
+    const items = allFixtureItems
+      .filter(({ m }) => m.home_team_id === fixtureTeamId || m.away_team_id === fixtureTeamId)
+      .sort((x, y) => mdOf(x.m) - mdOf(y.m) || timeOf(x.m) - timeOf(y.m));
+    fixtureGroups = [
+      {
+        key: `t${fixtureTeamId}`,
+        title: teamsById[fixtureTeamId]?.name ?? "Equipo",
+        items,
+      },
+    ];
+  } else if (fixtureSort === "zona") {
     fixtureGroups = zones
       .filter((z) => z.matches.length > 0)
       .map((z) => ({
@@ -357,17 +358,35 @@ export default function PublicView({ data }: { data: PublicData }) {
           ) : (
             <section className="panel">
               <div className="fixture-controls" role="group" aria-label="Ordenar fixture">
-                {(Object.keys(FIXTURE_SORT_LABELS) as FixtureSort[]).map((k) => (
-                  <button
-                    key={k}
-                    type="button"
-                    className={`chip ${fixtureSort === k ? "active" : ""}`}
-                    aria-pressed={fixtureSort === k}
-                    onClick={() => setFixtureSort(k)}
-                  >
-                    {FIXTURE_SORT_LABELS[k]}
-                  </button>
-                ))}
+                {fixtureTeamId === null &&
+                  (Object.keys(FIXTURE_SORT_LABELS) as FixtureSort[]).map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      className={`chip ${fixtureSort === k ? "active" : ""}`}
+                      aria-pressed={fixtureSort === k}
+                      onClick={() => setFixtureSort(k)}
+                    >
+                      {FIXTURE_SORT_LABELS[k]}
+                    </button>
+                  ))}
+                <select
+                  className="team-filter"
+                  aria-label="Filtrar por equipo"
+                  value={fixtureTeamId ?? ""}
+                  onChange={(e) => setFixtureTeamId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">Todos los equipos</option>
+                  {zones
+                    .filter((z) => z.teams.length > 0)
+                    .map((z) => (
+                      <optgroup key={z.zone.id} label={z.zone.name}>
+                        {z.teams.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                </select>
               </div>
 
               {fixtureGroups.map((group) => (
@@ -375,7 +394,11 @@ export default function PublicView({ data }: { data: PublicData }) {
                   <div className="card-head">
                     <h2>{group.title}</h2>
                   </div>
-                  {group.items.map(({ m, zoneName }) => renderMatch(m, zoneName))}
+                  {group.items.length === 0 ? (
+                    <div className="empty">Este equipo todavía no tiene partidos cargados.</div>
+                  ) : (
+                    group.items.map(({ m, zoneName }) => renderMatch(m, zoneName))
+                  )}
                 </div>
               ))}
             </section>
@@ -420,92 +443,36 @@ export default function PublicView({ data }: { data: PublicData }) {
             </section>
           ))}
 
-        {tab === "miequipo" && (() => {
-          const myZone = myTeamId != null ? zones.find((z) => z.teams.some((t) => t.id === myTeamId)) : undefined;
-          const myTeam = myTeamId != null ? teamsById[myTeamId] : undefined;
-          const idx = myZone ? myZone.standings.findIndex((r) => r.team.id === myTeamId) : -1;
-          const row = idx >= 0 ? myZone!.standings[idx] : undefined;
-          const teamMatches = myZone
-            ? myZone.matches.filter((m) => m.home_team_id === myTeamId || m.away_team_id === myTeamId)
-            : [];
-          const upcoming = teamMatches.filter((m) => !m.played || m.home_score === null);
-          const results = teamMatches.filter((m) => m.played && m.home_score !== null).reverse();
-
-          return (
+        {tab === "historial" &&
+          (champions.length === 0 ? (
+            <div className="card empty">Todavía no hay campeones cargados.</div>
+          ) : (
             <section className="panel">
-              <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-                <label className="me-label" htmlFor="me-select">Elegí tu equipo</label>
-                <select
-                  id="me-select"
-                  className="me-select"
-                  value={myTeamId ?? ""}
-                  onChange={(e) => chooseTeam(e.target.value ? Number(e.target.value) : null)}
-                >
-                  <option value="">— Seleccionar equipo —</option>
-                  {zones
-                    .filter((z) => z.teams.length > 0)
-                    .map((z) => (
-                      <optgroup key={z.zone.id} label={z.zone.name}>
-                        {z.teams.map((t) => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                </select>
+              <div className="card">
+                <div className="card-head">
+                  <h2>Historial de campeones</h2>
+                </div>
+                <div className="tscroll">
+                  <table className="champions">
+                    <thead>
+                      <tr>
+                        <th className="season">Temporada</th>
+                        <th>Campeón</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {champions.map((c) => (
+                        <tr key={c.id}>
+                          <td className="season">{c.season}</td>
+                          <td>{c.champion}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-
-              {!myTeam ? (
-                <div className="card empty">Elegí un equipo para ver sus próximos partidos y estadísticas.</div>
-              ) : (
-                <>
-                  <div className="card me-head">
-                    <TeamLogo team={myTeam} />
-                    <div>
-                      <div className="me-name">{myTeam.name}</div>
-                      {myZone && (
-                        <div className="me-sub">
-                          {myZone.zone.name}
-                          {idx >= 0 && <> · {idx + 1}° {idx < myZone.zone.qualifiers_count && <span className="me-qual">Zona de clasificación</span>}</>}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {row && (
-                    <div className="card me-stats">
-                      <div className="stat"><span className="s-val">{row.pts}</span><span className="s-lbl">Pts</span></div>
-                      <div className="stat"><span className="s-val">{row.pj}</span><span className="s-lbl">PJ</span></div>
-                      <div className="stat"><span className="s-val">{row.g}</span><span className="s-lbl">G</span></div>
-                      <div className="stat"><span className="s-val">{row.e}</span><span className="s-lbl">E</span></div>
-                      <div className="stat"><span className="s-val">{row.p}</span><span className="s-lbl">P</span></div>
-                      <div className="stat"><span className="s-val">{row.gf}</span><span className="s-lbl">GF</span></div>
-                      <div className="stat"><span className="s-val">{row.gc}</span><span className="s-lbl">GC</span></div>
-                      <div className="stat"><span className="s-val">{row.dif > 0 ? "+" : ""}{row.dif}</span><span className="s-lbl">DIF</span></div>
-                    </div>
-                  )}
-
-                  <div className="card">
-                    <div className="card-head"><h2>Próximos partidos</h2></div>
-                    {upcoming.length === 0 ? (
-                      <div className="empty">No hay partidos pendientes.</div>
-                    ) : (
-                      upcoming.map((m) => renderMatch(m))
-                    )}
-                  </div>
-
-                  <div className="card">
-                    <div className="card-head"><h2>Últimos resultados</h2></div>
-                    {results.length === 0 ? (
-                      <div className="empty">Todavía no jugó ningún partido.</div>
-                    ) : (
-                      results.map((m) => renderMatch(m))
-                    )}
-                  </div>
-                </>
-              )}
             </section>
-          );
-        })()}
+          ))}
       </main>
     </>
   );

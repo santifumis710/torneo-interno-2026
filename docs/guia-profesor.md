@@ -60,11 +60,20 @@ En la tarjeta **Playoffs**, separada en **Cuartos / Semifinales / Final**:
 - Después, en cada cruce podés **asignar el equipo** real (desplegable) y **cargar el resultado**.
 - El **cuadro** se ve en la web, en la pestaña **Playoffs**.
 
-## 7. "Mi equipo" (para los que miran la web)
+## 7. Historial de campeones
 
-No hay nada que cargar acá: es una pestaña de la web pública. Cualquier persona puede
-**elegir su equipo** y ver sus **próximos partidos**, su **posición** y sus **estadísticas**.
-Se alimenta solo de lo que vos cargás (equipos, partidos y fechas).
+En la tarjeta **Historial de campeones** cargás los ganadores de las ediciones anteriores:
+- Cada fila tiene el **año** y el **campeón**. Tocá **Guardar** para editar una, o **✕** para borrarla.
+- Abajo de todo, escribí año y campeón y tocá **Agregar** para sumar una nueva.
+- En la web se ven en la pestaña **Historial**, en el mismo orden en que están acá.
+
+El año es texto libre: si hace falta podés escribir algo como *"2020 (no se jugó)"*.
+
+## 8. Ver los partidos de un equipo (en la web)
+
+En la pestaña **Fixture** de la web pública hay un desplegable de **equipos**: cualquiera
+puede elegir uno y ver **solo los partidos de ese equipo**, ordenados por número de fecha.
+No tenés que cargar nada extra: sale de los partidos que ya cargaste.
 
 ## Preguntas frecuentes
 

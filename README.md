@@ -12,9 +12,9 @@ profesor desde un **panel de administración** — no hace falta tocar código.
 **Web pública** (`/`), en pestañas:
 - **Posiciones** — tabla por zona (PJ, G, E, P, GF, GC, DIF, Pts), ordenada por Pts → DIF → GF, con los clasificados en dorado.
 - **Equipos** — planteles por zona, cada equipo con su logo y jugadores (con foto).
-- **Fixture** — partidos ordenados por fecha y hora, con resultados (o "VS" si están pendientes).
+- **Fixture** — partidos con resultados (o "VS" si están pendientes), agrupados **por zona, por fecha o por día/hora**, y con **filtro por equipo**: elegís un equipo y ves solo sus partidos, ordenados por número de fecha.
 - **Playoffs** — cuadro Cuartos → Semifinales → Final.
-- **Mi equipo** — el visitante elige un equipo (se recuerda en el navegador) y ve su posición en la zona, estadísticas, próximos partidos y últimos resultados.
+- **Historial** — tabla de campeones de las ediciones anteriores.
 - Responsive (celular y computadora) y tema claro/oscuro.
 
 **Panel `/admin`** (protegido por contraseña) — el profesor gestiona todo:
@@ -24,6 +24,7 @@ profesor desde un **panel de administración** — no hace falta tocar código.
 - **Jugadores:** alta/edición/borrado por equipo, con **foto** opcional.
 - **Partidos:** cargar resultados, número de jornada y **fecha/hora** → la tabla y el fixture se recalculan solos.
 - **Playoffs:** definir cruces (ej. 1°A vs 4°B), asignar equipos y cargar resultados.
+- **Historial de campeones:** agregar, editar o borrar las filas de años anteriores.
 
 Al reemplazar, quitar o borrar una imagen (logos y fotos), el archivo anterior se elimina del Vercel Blob para no dejar huérfanos.
 

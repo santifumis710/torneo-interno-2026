@@ -37,6 +37,9 @@ export type TieRow = {
   played: boolean;
 };
 
+/** Una fila del historial de campeones de ediciones anteriores. */
+export type Champion = { id: number; season: string; champion: string; sort_order: number };
+
 export type StandingRow = {
   team: Team;
   pj: number;
@@ -104,6 +107,17 @@ export function computeStandings(
   return rows;
 }
 
+/**
+ * Envuelve una consulta opcional: si la tabla todavía no existe (esquema sin actualizar
+ * en Neon), devuelve [] en vez de tirar y voltear toda la página.
+ */
+function optional<T>(query: Promise<unknown>, label: string): Promise<T[]> {
+  return (query as Promise<T[]>).catch((err) => {
+    console.error(`No se pudo leer ${label} (¿falta correr db/schema.sql en Neon?):`, err);
+    return [];
+  });
+}
+
 export type PublicZone = {
   zone: Zone;
   standings: StandingRow[];
@@ -117,19 +131,21 @@ export type PublicData = {
   ties: TieRow[];
   teamsById: Record<number, Team>;
   playersByTeam: Record<number, Player[]>;
+  champions: Champion[];
 };
 
 /** Trae todo lo necesario para la vista pública. */
 export async function getPublicData(): Promise<PublicData> {
   const sql = db();
-  const [settingsRows, zones, teams, matches, ties, players] = (await Promise.all([
+  const [settingsRows, zones, teams, matches, ties, players, champions] = (await Promise.all([
     sql`SELECT tournament_name, subtitle, logo_url, points_win, points_draw FROM settings WHERE id = 1`,
     sql`SELECT id, name, qualifiers_count, sort_order FROM zones ORDER BY sort_order, id`,
     sql`SELECT id, zone_id, name, logo_url FROM teams ORDER BY sort_order, id`,
     sql`SELECT id, zone_id, home_team_id, away_team_id, home_score, away_score, played, matchday, scheduled_at FROM matches ORDER BY scheduled_at NULLS LAST, matchday NULLS LAST, id`,
     sql`SELECT id, round, sort_order, home_label, away_label, home_team_id, away_team_id, home_score, away_score, played FROM playoff_ties ORDER BY round, sort_order, id`,
     sql`SELECT id, team_id, name, number, photo_url FROM players ORDER BY sort_order, id`,
-  ])) as [Settings[], Zone[], Team[], MatchRow[], TieRow[], Player[]];
+    optional<Champion>(sql`SELECT id, season, champion, sort_order FROM champions ORDER BY sort_order, id`, "champions"),
+  ])) as [Settings[], Zone[], Team[], MatchRow[], TieRow[], Player[], Champion[]];
 
   const settings = settingsRows[0] ?? DEFAULT_SETTINGS;
   const teamsById: Record<number, Team> = {};
@@ -149,7 +165,7 @@ export async function getPublicData(): Promise<PublicData> {
     };
   });
 
-  return { settings, zones: publicZones, ties, teamsById, playersByTeam };
+  return { settings, zones: publicZones, ties, teamsById, playersByTeam, champions };
 }
 
 export type AdminData = {
@@ -159,22 +175,24 @@ export type AdminData = {
   playersByTeam: Record<number, Player[]>;
   matches: MatchRow[];
   ties: TieRow[];
+  champions: Champion[];
 };
 
 /** Trae todo lo necesario para el panel de administración. */
 export async function getAdminData(): Promise<AdminData> {
   const sql = db();
-  const [settingsRows, zones, teams, players, matches, ties] = (await Promise.all([
+  const [settingsRows, zones, teams, players, matches, ties, champions] = (await Promise.all([
     sql`SELECT tournament_name, subtitle, logo_url, points_win, points_draw FROM settings WHERE id = 1`,
     sql`SELECT id, name, qualifiers_count, sort_order FROM zones ORDER BY sort_order, id`,
     sql`SELECT id, zone_id, name, logo_url FROM teams ORDER BY sort_order, id`,
     sql`SELECT id, team_id, name, number, photo_url FROM players ORDER BY sort_order, id`,
     sql`SELECT id, zone_id, home_team_id, away_team_id, home_score, away_score, played, matchday, scheduled_at FROM matches ORDER BY scheduled_at NULLS LAST, matchday NULLS LAST, id`,
     sql`SELECT id, round, sort_order, home_label, away_label, home_team_id, away_team_id, home_score, away_score, played FROM playoff_ties ORDER BY round, sort_order, id`,
-  ])) as [Settings[], Zone[], Team[], Player[], MatchRow[], TieRow[]];
+    optional<Champion>(sql`SELECT id, season, champion, sort_order FROM champions ORDER BY sort_order, id`, "champions"),
+  ])) as [Settings[], Zone[], Team[], Player[], MatchRow[], TieRow[], Champion[]];
 
   const playersByTeam: Record<number, Player[]> = {};
   for (const p of players) (playersByTeam[p.team_id] ??= []).push(p);
 
-  return { settings: settingsRows[0] ?? DEFAULT_SETTINGS, zones, teams, playersByTeam, matches, ties };
+  return { settings: settingsRows[0] ?? DEFAULT_SETTINGS, zones, teams, playersByTeam, matches, ties, champions };
 }

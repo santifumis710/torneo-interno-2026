@@ -25,6 +25,9 @@ import {
   createTie,
   updateTie,
   deleteTie,
+  createChampion,
+  updateChampion,
+  deleteChampion,
   logoutAction,
 } from "./actions";
 
@@ -49,7 +52,7 @@ function toLocalInput(iso: string | null): string {
 
 export default async function AdminPage() {
   await requireAuth();
-  const { settings, zones, teams, playersByTeam, matches, ties } = await getAdminData();
+  const { settings, zones, teams, playersByTeam, matches, ties, champions } = await getAdminData();
   const teamName = (id: number) => teams.find((t) => t.id === id)?.name ?? "?";
 
   return (
@@ -381,6 +384,37 @@ export default async function AdminPage() {
             </div>
           );
         })}
+      </div>
+
+      {/* Historial de campeones */}
+      <div className="a-card">
+        <h2>Historial de campeones</h2>
+        <p className="hint">
+          Los campeones de ediciones anteriores. Se ven en la pestaña <b>Historial</b> de la web,
+          en el orden en que aparecen acá.
+        </p>
+
+        {champions.length === 0 && <p className="hint">Todavía no hay campeones cargados.</p>}
+        {champions.map((c) => (
+          <div className="champ-line" key={c.id}>
+            <form action={updateChampion} className="champ-edit">
+              <input type="hidden" name="id" value={c.id} />
+              <input className="cseason" name="season" defaultValue={c.season} required />
+              <input name="champion" defaultValue={c.champion} required style={{ flex: 1 }} />
+              <button className="btn btn-sec btn-xs" type="submit">Guardar</button>
+            </form>
+            <form action={deleteChampion}>
+              <input type="hidden" name="id" value={c.id} />
+              <button className="btn-danger btn-xs" type="submit">✕</button>
+            </form>
+          </div>
+        ))}
+
+        <form action={createChampion} className="champ-line" style={{ marginTop: 10 }}>
+          <input className="cseason" name="season" placeholder="Año" required />
+          <input name="champion" placeholder="Campeón" required style={{ flex: 1 }} />
+          <button className="btn btn-xs" type="submit">Agregar</button>
+        </form>
       </div>
     </div>
   );

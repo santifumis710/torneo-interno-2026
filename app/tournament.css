@@ -125,19 +125,20 @@
 }
 .empty-r { color: var(--muted); font-size: 13px; padding: 12px 8px; }
 
-/* Mi equipo */
-.me-label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
-.me-select {
-  font: inherit; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line);
-  border-radius: 9px; padding: 10px 12px; width: 100%;
+/* Filtro por equipo del fixture */
+.team-filter {
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; padding: 7px 12px; max-width: 100%;
 }
-.me-head { display: flex; align-items: center; gap: 14px; padding: 16px; margin-bottom: 16px; }
-.me-head .logo { width: 46px; height: 46px; font-size: 15px; }
-.me-name { font-size: 18px; font-weight: 800; }
-.me-sub { font-size: 13px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.me-qual { color: #2a1e00; background: var(--gold); border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
-.me-stats { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; padding: 14px 10px; margin-bottom: 16px; }
-@media (max-width: 520px) { .me-stats { grid-template-columns: repeat(4, 1fr); gap: 10px 4px; } }
-.me-stats .stat { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-.me-stats .s-val { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.me-stats .s-lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; }
+
+/* Historial de campeones */
+.champions { width: 100%; border-collapse: collapse; }
+.champions th, .champions td { padding: 10px 12px; text-align: left; border-top: 1px solid var(--line); }
+.champions thead th {
+  border-top: 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--muted); font-weight: 700;
+}
+.champions td { font-weight: 600; }
+.champions .season { width: 120px; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+

@@ -1,7 +1,7 @@
 # CLAUDE.md — Torneo Interno 2026
 
 > Documento de contexto clave para cualquier agente que trabaje en este proyecto.
-> Mantener actualizado a medida que se toman decisiones. **Última actualización: 2026-08-04.**
+> Mantener actualizado a medida que se toman decisiones. **Última actualización: 2026-08-07.**
 
 ## Qué es este proyecto
 
@@ -36,8 +36,9 @@ Dos audiencias:
 - **Playoffs:** cruces editables por instancia (Cuartos/Semis/Final) con referencia (ej. 1°A), asignación de equipo y resultados. Avance de ganadores **manual**.
 - **Fecha y hora de partidos** (`scheduled_at`): editable en el admin; el **fixture se ordena por fecha/hora** y la muestra en horario de Argentina (UTC-3). Convive con el número de jornada (`matchday`).
 - **Fotos de jugadores** (`players.photo_url`): el profe las sube desde el admin; se procesan como recorte cuadrado JPEG (sin quita-fondo) y se ven como avatar en el roster.
-- **Vista pública** con pestañas **Posiciones / Equipos / Fixture / Playoffs / Mi equipo**, responsive y tema claro/oscuro.
-- **Pestaña "Mi equipo":** cada visitante elige un equipo (guardado en el navegador) y ve su posición en la zona, estadísticas, próximos partidos y últimos resultados. Se calcula en el cliente, sin tocar la base.
+- **Vista pública** con pestañas **Posiciones / Equipos / Fixture / Playoffs / Historial**, responsive y tema claro/oscuro.
+- **Fixture con filtro por equipo:** además de agrupar por zona/fecha/día, se puede elegir un equipo y ver solo sus partidos ordenados por número de fecha. Reemplaza a la vieja pestaña "Mi equipo".
+- **Historial de campeones** (tabla `champions`): ediciones anteriores, editables desde el admin. `season` es texto y el orden lo da `sort_order`.
 
 ## Estado
 

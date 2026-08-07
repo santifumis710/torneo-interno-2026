@@ -15,6 +15,7 @@ const EMPTY: PublicData = {
   ties: [],
   teamsById: {},
   playersByTeam: {},
+  champions: [],
 };
 
 export default async function Home() {

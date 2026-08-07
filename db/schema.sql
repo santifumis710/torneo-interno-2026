@@ -72,9 +72,37 @@ CREATE TABLE IF NOT EXISTS players (
 );
 CREATE INDEX IF NOT EXISTS players_team_idx ON players(team_id);
 
+-- Historial de campeones de ediciones anteriores (lo edita el profe desde el admin).
+-- `season` es texto para admitir cosas como "2017" o "2020 (no se jugó)".
+CREATE TABLE IF NOT EXISTS champions (
+  id          SERIAL PRIMARY KEY,
+  season      TEXT NOT NULL,
+  champion    TEXT NOT NULL,
+  sort_order  INT  NOT NULL DEFAULT 0
+);
+
 -- Migraciones aditivas (idempotentes) para bases ya creadas:
 ALTER TABLE players ADD COLUMN IF NOT EXISTS photo_url TEXT;        -- foto del jugador (Vercel Blob)
 ALTER TABLE matches ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ; -- fecha/hora del partido
+
+-- Semilla del historial de campeones (solo si la tabla está vacía; después se edita desde el admin).
+INSERT INTO champions (season, champion, sort_order)
+SELECT * FROM (VALUES
+  ('2010', 'Los Amigos de Nelson', 0),
+  ('2011', 'Tiki – Tiki', 1),
+  ('2012', 'Lesión Imposible', 2),
+  ('2013', 'La Gran Willy', 3),
+  ('2014', 'La Gran Willy', 4),
+  ('2015', 'La Gran Willy', 5),
+  ('2016', 'El Borre y sus Nenes', 6),
+  ('2017', 'Galacticoy / La Naranja Eléctrica', 7),
+  ('2018', 'Bielazo FC', 8),
+  ('2019', 'Bielazo FC', 9),
+  ('2022', 'Tus Socios', 10),
+  ('2023', 'Tus Socios', 11),
+  ('2024', 'Inter del Gordo Alegre', 12)
+) AS seed(season, champion, sort_order)
+WHERE NOT EXISTS (SELECT 1 FROM champions);
 
 -- Semilla inicial: dos zonas para empezar (el profe puede renombrar/borrar/agregar).
 INSERT INTO zones (name, qualifiers_count, sort_order)

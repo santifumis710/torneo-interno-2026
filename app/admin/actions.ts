@@ -354,6 +354,42 @@ export async function removeTournamentLogo() {
   refresh();
 }
 
+/* ---------- Historial de campeones ---------- */
+
+export async function createChampion(formData: FormData) {
+  await requireAuth();
+  const season = String(formData.get("season") ?? "").trim();
+  const champion = String(formData.get("champion") ?? "").trim();
+  if (!season || !champion) return;
+
+  const sql = db();
+  await sql`
+    INSERT INTO champions (season, champion, sort_order)
+    VALUES (${season}, ${champion}, COALESCE((SELECT MAX(sort_order) + 1 FROM champions), 0))`;
+  refresh();
+}
+
+export async function updateChampion(formData: FormData) {
+  await requireAuth();
+  const id = Number(formData.get("id"));
+  const season = String(formData.get("season") ?? "").trim();
+  const champion = String(formData.get("champion") ?? "").trim();
+  if (!id || !season || !champion) return;
+
+  const sql = db();
+  await sql`UPDATE champions SET season = ${season}, champion = ${champion} WHERE id = ${id}`;
+  refresh();
+}
+
+export async function deleteChampion(formData: FormData) {
+  await requireAuth();
+  const id = Number(formData.get("id"));
+  if (!id) return;
+  const sql = db();
+  await sql`DELETE FROM champions WHERE id = ${id}`;
+  refresh();
+}
+
 /* ---------- Playoffs (cruces del cuadro) ---------- */
 
 export async function createTie(formData: FormData) {

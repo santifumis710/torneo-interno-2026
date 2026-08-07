@@ -95,6 +95,12 @@ input:focus, select:focus { outline: 2px solid var(--brand-2); outline-offset: 1
 .tie-add { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
 .tie-add .tlabel { flex: 0 0 90px; }
 
+/* Historial de campeones */
+.champ-line { display: flex; gap: 8px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.champ-line:first-of-type { border-top: 0; }
+.champ-edit { display: flex; gap: 6px; align-items: center; flex: 1; flex-wrap: wrap; }
+.cseason { flex: 0 0 84px; text-align: center; }
+
 .login-box { max-width: 360px; margin: 12vh auto 0; }
 .login-box .a-card { text-align: left; }
 .err { color: var(--loss); font-size: 13px; margin: 0 0 12px; font-weight: 600; }
