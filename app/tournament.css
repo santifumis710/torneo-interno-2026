@@ -83,6 +83,24 @@
 .score { min-width: 62px; text-align: center; font-weight: 800; font-size: 15px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 5px 4px; }
 .score.pending { color: var(--muted); font-weight: 600; font-size: 12.5px; letter-spacing: .3px; }
 .side .team-name { font-size: 13.5px; }
+
+/* Fecha en la que el equipo queda libre (no es un partido) */
+.match.bye { grid-template-columns: 1fr; justify-items: center; }
+.bye-label {
+  font-size: 12.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+  color: var(--muted); background: var(--surface-2); border: 1px dashed var(--line);
+  border-radius: 8px; padding: 6px 18px;
+}
+.bye-note {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  border-top: 1px solid var(--line); padding: 10px 14px;
+  font-size: 12.5px; font-weight: 600; color: var(--muted);
+}
+.bye-note-lbl {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--muted); background: var(--surface-2); border: 1px dashed var(--line);
+  border-radius: 999px; padding: 2px 9px;
+}
 @media (max-width: 480px) { .side .team-name { font-size: 12.5px; } }
 
 /* Bracket */

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import "./tournament.css";
+import { computeByes } from "@/lib/byes";
 import type { MatchRow, Player, PublicData, StandingRow, Team } from "@/lib/queries";
 
 const COLORS = ["#123a86", "#1f9d55", "#d94a3d", "#7a3fb0", "#0d8f9e", "#c85a12", "#334155", "#b02a5b"];
@@ -196,24 +197,58 @@ export default function PublicView({ data }: { data: PublicData }) {
     );
   };
 
+  const renderBye = (matchday: number, zoneName: string) => (
+    <div className="match-wrap" key={`bye-${zoneName}-${matchday}`}>
+      <div className="match-meta">
+        <span className="match-fecha">Fecha {matchday}</span>
+        <span className="match-zone">{zoneName}</span>
+      </div>
+      <div className="match bye">
+        <span className="bye-label">Libre</span>
+      </div>
+    </div>
+  );
+
   const rounds = [...new Set(ties.map((t) => t.round))].sort((a, b) => a - b);
   const anyMatches = zones.some((z) => z.matches.length > 0);
 
   // Agrupa los partidos del fixture según el modo elegido (zona, fecha/jornada o día/hora).
-  type FixtureItem = { m: MatchRow; zoneName: string };
-  type FixtureGroup = { key: string; title: string; items: FixtureItem[] };
+  // Un item puede ser un partido o, en el filtro por equipo, una fecha libre.
+  type FixtureItem =
+    | { kind: "match"; m: MatchRow; zoneName: string }
+    | { kind: "bye"; matchday: number; zoneName: string };
+  type ByeNote = { teamName: string; zoneName: string };
+  type FixtureGroup = { key: string; title: string; items: FixtureItem[]; byes?: ByeNote[] };
+
+  // Fechas libres deducidas de los partidos cargados, por zona.
+  const byesByZone = new Map(zones.map((z) => [z.zone.id, computeByes(z.teams, z.matches)]));
+
   const allFixtureItems: FixtureItem[] = zones.flatMap((z) =>
-    z.matches.map((m) => ({ m, zoneName: z.zone.name })),
+    z.matches.map((m) => ({ kind: "match" as const, m, zoneName: z.zone.name })),
   );
-  const timeOf = (m: MatchRow) => (m.scheduled_at ? new Date(m.scheduled_at).getTime() : Infinity);
-  const mdOf = (m: MatchRow) => m.matchday ?? Infinity;
+  const timeOf = (it: FixtureItem) =>
+    it.kind === "match" && it.m.scheduled_at ? new Date(it.m.scheduled_at).getTime() : Infinity;
+  const mdOf = (it: FixtureItem) => (it.kind === "bye" ? it.matchday : it.m.matchday ?? Infinity);
 
   let fixtureGroups: FixtureGroup[] = [];
   if (fixtureTeamId !== null) {
-    // Filtro por equipo: una sola lista con todos sus partidos ordenados por fecha (1, 2, 3…).
-    const items = allFixtureItems
-      .filter(({ m }) => m.home_team_id === fixtureTeamId || m.away_team_id === fixtureTeamId)
-      .sort((x, y) => mdOf(x.m) - mdOf(y.m) || timeOf(x.m) - timeOf(y.m));
+    // Filtro por equipo: una sola lista con sus partidos y sus fechas libres,
+    // todo ordenado por número de fecha (1, 2, 3…).
+    const teamZone = zones.find((z) => z.teams.some((t) => t.id === fixtureTeamId));
+    const teamByes: FixtureItem[] = [];
+    if (teamZone) {
+      for (const [matchday, team] of byesByZone.get(teamZone.zone.id) ?? []) {
+        if (team.id === fixtureTeamId) {
+          teamByes.push({ kind: "bye", matchday, zoneName: teamZone.zone.name });
+        }
+      }
+    }
+    const items = [
+      ...allFixtureItems.filter(
+        (it) => it.kind === "match" && (it.m.home_team_id === fixtureTeamId || it.m.away_team_id === fixtureTeamId),
+      ),
+      ...teamByes,
+    ].sort((x, y) => mdOf(x) - mdOf(y) || timeOf(x) - timeOf(y));
     fixtureGroups = [
       {
         key: `t${fixtureTeamId}`,
@@ -227,12 +262,12 @@ export default function PublicView({ data }: { data: PublicData }) {
       .map((z) => ({
         key: `z${z.zone.id}`,
         title: z.zone.name,
-        items: z.matches.map((m) => ({ m, zoneName: z.zone.name })),
+        items: z.matches.map((m) => ({ kind: "match" as const, m, zoneName: z.zone.name })),
       }));
   } else if (fixtureSort === "fecha") {
     const byDay = new Map<number | null, FixtureItem[]>();
     for (const it of allFixtureItems) {
-      const key = it.m.matchday ?? null;
+      const key = it.kind === "match" ? it.m.matchday ?? null : it.matchday;
       (byDay.get(key) ?? byDay.set(key, []).get(key)!).push(it);
     }
     const keys = [...byDay.keys()].sort((a, b) => {
@@ -240,24 +275,31 @@ export default function PublicView({ data }: { data: PublicData }) {
       if (b === null) return -1;
       return a - b;
     });
+    // Cada grupo es una fecha, así que los libres de esa fecha van al pie de la tarjeta.
     fixtureGroups = keys.map((k) => ({
       key: `f${k ?? "none"}`,
       title: k === null ? "Sin fecha asignada" : `Fecha ${k}`,
-      items: byDay.get(k)!.slice().sort((x, y) => timeOf(x.m) - timeOf(y.m)),
+      items: byDay.get(k)!.slice().sort((x, y) => timeOf(x) - timeOf(y)),
+      byes:
+        k === null
+          ? undefined
+          : zones.flatMap((z) => {
+              const team = byesByZone.get(z.zone.id)?.get(k);
+              return team ? [{ teamName: team.name, zoneName: z.zone.name }] : [];
+            }),
     }));
   } else {
     const byDate = new Map<string, FixtureItem[]>();
     for (const it of allFixtureItems) {
-      const key = it.m.scheduled_at ? formatMatchDay(it.m.scheduled_at) : "￿Sin día asignado";
+      const key =
+        it.kind === "match" && it.m.scheduled_at ? formatMatchDay(it.m.scheduled_at) : "￿Sin día asignado";
       (byDate.get(key) ?? byDate.set(key, []).get(key)!).push(it);
     }
-    const sorted = [...byDate.entries()].sort(
-      ([, a], [, b]) => timeOf(a[0].m) - timeOf(b[0].m),
-    );
+    const sorted = [...byDate.entries()].sort(([, a], [, b]) => timeOf(a[0]) - timeOf(b[0]));
     fixtureGroups = sorted.map(([title, items]) => ({
       key: `d${title}`,
       title: title.startsWith("￿") ? "Sin día asignado" : title[0].toUpperCase() + title.slice(1),
-      items: items.slice().sort((x, y) => timeOf(x.m) - timeOf(y.m)),
+      items: items.slice().sort((x, y) => timeOf(x) - timeOf(y)),
     }));
   }
   const anyTeams = zones.some((z) => z.teams.length > 0);
@@ -397,7 +439,17 @@ export default function PublicView({ data }: { data: PublicData }) {
                   {group.items.length === 0 ? (
                     <div className="empty">Este equipo todavía no tiene partidos cargados.</div>
                   ) : (
-                    group.items.map(({ m, zoneName }) => renderMatch(m, zoneName))
+                    group.items.map((it) =>
+                      it.kind === "bye"
+                        ? renderBye(it.matchday, it.zoneName)
+                        : renderMatch(it.m, it.zoneName),
+                    )
+                  )}
+                  {group.byes && group.byes.length > 0 && (
+                    <div className="bye-note">
+                      <span className="bye-note-lbl">Libre</span>
+                      {group.byes.map((b) => `${b.teamName} (${b.zoneName})`).join(" · ")}
+                    </div>
                   )}
                 </div>
               ))}

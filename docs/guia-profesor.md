@@ -75,6 +75,18 @@ En la pestaña **Fixture** de la web pública hay un desplegable de **equipos**:
 puede elegir uno y ver **solo los partidos de ese equipo**, ordenados por número de fecha.
 No tenés que cargar nada extra: sale de los partidos que ya cargaste.
 
+### Las fechas libres salen solas
+
+Si una zona tiene un número impar de equipos, cada fecha deja uno **libre**. No hay que
+cargarlo: la web se da cuenta sola. La regla es simple —
+
+> Cuando la fecha tiene **todos sus partidos cargados** (con 7 equipos, los 3 partidos) y
+> hay un equipo que no aparece en ninguno, ese equipo figura **Libre** en esa fecha.
+
+Mientras te falte cargar algún partido de la fecha, **no dice nada**, justamente para no
+marcar como "libre" a un equipo cuyo partido todavía no cargaste. Se ve en el filtro por
+equipo (como una fila más) y al pie de cada fecha cuando agrupás **Por fecha**.
+
 ## Preguntas frecuentes
 
 - **Cargué algo y no se ve.** Refrescá la página pública; los cambios son inmediatos.

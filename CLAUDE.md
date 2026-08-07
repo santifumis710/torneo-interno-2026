@@ -38,6 +38,7 @@ Dos audiencias:
 - **Fotos de jugadores** (`players.photo_url`): el profe las sube desde el admin; se procesan como recorte cuadrado JPEG (sin quita-fondo) y se ven como avatar en el roster.
 - **Vista pública** con pestañas **Posiciones / Equipos / Fixture / Playoffs / Historial**, responsive y tema claro/oscuro.
 - **Fixture con filtro por equipo:** además de agrupar por zona/fecha/día, se puede elegir un equipo y ver solo sus partidos ordenados por número de fecha. Reemplaza a la vieja pestaña "Mi equipo".
+- **Fechas libres deducidas** (`lib/byes.ts`): con zonas impares, si una fecha tiene los `floor(equipos/2)` partidos cargados y falta exactamente un equipo, ese equipo figura **Libre**. Fecha incompleta ⇒ no se afirma nada. Se ve en el filtro por equipo y en el agrupado "Por fecha"; **no** en "Por zona" ni "Por día/hora". Sin cambios de base.
 - **Historial de campeones** (tabla `champions`): ediciones anteriores, editables desde el admin. `season` es texto y el orden lo da `sort_order`.
 
 ## Estado

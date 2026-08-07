@@ -12,7 +12,7 @@ profesor desde un **panel de administración** — no hace falta tocar código.
 **Web pública** (`/`), en pestañas:
 - **Posiciones** — tabla por zona (PJ, G, E, P, GF, GC, DIF, Pts), ordenada por Pts → DIF → GF, con los clasificados en dorado.
 - **Equipos** — planteles por zona, cada equipo con su logo y jugadores (con foto).
-- **Fixture** — partidos con resultados (o "VS" si están pendientes), agrupados **por zona, por fecha o por día/hora**, y con **filtro por equipo**: elegís un equipo y ves solo sus partidos, ordenados por número de fecha.
+- **Fixture** — partidos con resultados (o "VS" si están pendientes), agrupados **por zona, por fecha o por día/hora**, y con **filtro por equipo**: elegís un equipo y ves solo sus partidos, ordenados por número de fecha. Las **fechas libres** (zonas de equipos impares) se deducen solas y aparecen como una fila más.
 - **Playoffs** — cuadro Cuartos → Semifinales → Final.
 - **Historial** — tabla de campeones de las ediciones anteriores.
 - Responsive (celular y computadora) y tema claro/oscuro.
