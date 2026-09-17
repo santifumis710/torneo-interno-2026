@@ -30,8 +30,8 @@ Dos audiencias:
 
 ## Puntos clave del producto (implementado)
 
-- **Todo editable desde el admin:** nombre/subtítulo/logo del torneo, zonas, equipos, jugadores, partidos y playoffs. Sin nombres de zona hardcodeados.
-- **Tabla de posiciones calculada sola** desde `matches` jugados (`computeStandings`). Desempate **Pts → DIF → GF**. Puntos configurables (3/1/0 por defecto).
+- **Todo editable desde el admin:** nombre/subtítulo/logo del torneo, fases, zonas, equipos, jugadores y partidos. Sin nombres de zona ni de equipo hardcodeados.
+- **Tabla de posiciones calculada sola** desde `matches` jugados (`computeStandings`). Columnas **Pts PJ G E P DIF GF GC**; desempate **Pts → DIF → GF → orden del equipo en la zona** (`zone_teams.sort_order`, con flechas ↑↓ en el admin). Puntos configurables (3/1/0 por defecto).
 - **Estructura configurable:** zonas y cantidad de equipos dinámicas. Cada zona define cuántos clasifican → se pintan en **dorado**.
 - **Fases:** `zones.phase` (1, 2, …) y **`zone_teams`** (many-to-many) porque en Fase 2 los mismos equipos se reagrupan en zonas nuevas. `teams.zone_id` queda solo por compatibilidad/cascade: la fuente de verdad de "qué equipos hay en esta zona" es `zone_teams`. Los partidos heredan la fase de su zona (`matches` sin columna nueva). La etiqueta se genera (`Fase N`), no se hardcodea.
 - **Playoffs eliminados de la UI** (nunca se usaron). La tabla `playoff_ties` sigue en la base, sin uso.
@@ -40,6 +40,7 @@ Dos audiencias:
 - **Vista pública** con pestañas **una por fase (Fase 2, Fase 1, …) / Equipos / Fixture / Historial**, responsive y tema claro/oscuro. Abre en la fase más nueva. **Equipos** va sin agrupar (una sola grilla).
 - **Fixture por fase:** el selector de fase es **obligatorio** (los números de fecha se repiten entre fases) y recién dentro se agrupa por zona/fecha/día. Con **filtro por equipo** no hace falta: se muestran todas las fases, una debajo de la otra, ordenadas por número de fecha.
 - **Fechas libres deducidas** (`lib/byes.ts`): con zonas impares, si una fecha tiene los `floor(equipos/2)` partidos cargados y falta exactamente un equipo, ese equipo figura **Libre**. Fecha incompleta ⇒ no se afirma nada. Se ve en el filtro por equipo y en el agrupado "Por fecha"; **no** en "Por zona" ni "Por día/hora". Sin cambios de base.
+- **Admin por secciones plegables** (`<details>`): 1) Partidos y resultados (abierta, con selector de fase vía `?fase=N`), 2) Zonas y fases, 3) Equipos y jugadores, 4) Historial, 5) Torneo. El profe ya no carga equipos/jugadores ni toca Fase 1: sigue todo disponible pero fuera del camino.
 - **Historial de campeones** (tabla `champions`): ediciones anteriores, editables desde el admin. `season` es texto y el orden lo da `sort_order`.
 
 ## Estado
@@ -47,16 +48,14 @@ Dos audiencias:
 🟢 **Terminado según el alcance planificado y desplegado en producción.**
 Detalle de features y uso en `README.md` y `docs/guia-profesor.md`.
 
-- **Admin por secciones plegables** (`<details>`): 1) Partidos y resultados (abierta, con selector de fase vía `?fase=N`), 2) Zonas y fases, 3) Equipos y jugadores, 4) Historial, 5) Torneo. El profe ya no carga equipos/jugadores ni toca Fase 1: sigue todo disponible pero fuera del camino.
-
-Mejoras futuras posibles (no pedidas): instancia final/playoffs, goleadores, orden manual de equipos/jugadores.
+Mejoras futuras posibles (no pedidas): instancia final/playoffs, goleadores, orden manual de jugadores dentro del equipo.
 
 ## Notas operativas importantes
 
 - **El store de Blob debe ser PÚBLICO.** Con un store privado la subida de logos falla
   (`Cannot use public access on a private store`). Store en uso: `torneo-logos-pub` (`BLOB_READ_WRITE_TOKEN`).
 - **Cambios de esquema:** editar `db/schema.sql` y ejecutarlo en el **SQL Editor de Neon** (es idempotente).
-- **Pendiente de correr en Neon (2026-09-17):** `db/schema.sql` (agrega `zones.phase` + `zone_teams` y hace el backfill) y después `db/fase2.sql` (crea las 4 zonas de Fase 2 y les asigna los equipos por nombre; la última consulta lista los nombres que no matchearon). Hasta que se corra, la web toma todo como Fase 1 (hay fallback).
+- **Corrido en Neon el 2026-09-17:** `db/schema.sql` (agregó `zones.phase` + `zone_teams` con su backfill) y `db/fase2.sql` (creó las 4 zonas de Fase 2 y les asignó los 14 equipos por nombre, sin ninguno sin matchear). Verificado contra producción.
 - **Secretos redactados en el entorno del agente:** al hacer `vercel env pull`, los valores sensibles
   llegan como `[SENSITIVE]`. Por eso no se puede correr `db:setup` ni conectar a la base desde el agente;
   las tablas se crean pegando el SQL en Neon y se prueba vía deploys de Vercel.
