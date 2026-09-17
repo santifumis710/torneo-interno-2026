@@ -13,12 +13,13 @@ un **panel de administración** — no hace falta tocar código.
 - **Una pestaña por fase** (Fase 2, Fase 1, …, de la más nueva a la más vieja) — tabla de cada zona de esa fase (Pts, PJ, G, E, P, DIF, GF, GC), ordenada por Pts → DIF → GF → orden del equipo en la zona, con los clasificados en dorado. Las pestañas salen de las fases que existen en la base; la que se abre primero es la más nueva.
 - **Equipos** — todos los equipos en una grilla, cada uno con su logo y su plantel (con foto).
 - **Fixture** — partidos con resultados (o "VS" si están pendientes). Primero se **elige la fase** (los números de fecha se repiten entre fases) y dentro de ella se agrupa **por zona, por fecha o por día/hora**. Con el **filtro por equipo** no hace falta elegir fase: se ven **todas**, una debajo de la otra, ordenadas por número de fecha. Las **fechas libres** (zonas de equipos impares) se deducen solas y aparecen como una fila más.
+- **Interzonal** — los partidos entre equipos de zonas distintas de una misma fase salen juntos en una tarjeta **Interzonal**, y cada equipo los suma en la tabla de **su** zona (así dos zonas chicas se cruzan y cada una conserva su tabla).
 - **Historial** — tabla de campeones de las ediciones anteriores.
 - Responsive (celular y computadora) y tema claro/oscuro.
 
 **Panel `/admin`** (protegido por contraseña) — el profesor gestiona todo:
 Está dividido en secciones plegables; solo **Partidos y resultados** viene abierta, que es lo que se usa semana a semana.
-- **Partidos y resultados:** cargar partidos y resultados, número de jornada y **fecha/hora** → la tabla y el fixture se recalculan solos. Arriba hay un selector de **fase**, que arranca en la más nueva.
+- **Partidos y resultados:** cargar partidos y resultados, número de jornada y **fecha/hora** → la tabla y el fixture se recalculan solos. Arriba hay un selector de **fase**, que arranca en la más nueva. Debajo de las zonas hay un bloque **Interzonal** para los cruces entre zonas de esa fase (se cargan ahí y en ningún otro lado).
 - **Zonas y fases:** crear/renombrar/borrar zonas, en qué fase está cada una, cuántos clasifican, y qué equipos juegan en cada zona (un mismo equipo puede estar en una zona por fase; sacarlo de una zona no lo borra) y en qué **orden** aparecen, que es el último desempate de la tabla.
 - **Equipos y jugadores:** nombre y logo de cada equipo (se normaliza y se le quita el fondo plano), y alta/edición/borrado de jugadores con **foto** opcional.
 - **Historial de campeones:** agregar, editar o borrar las filas de años anteriores.

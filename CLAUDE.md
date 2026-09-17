@@ -53,6 +53,12 @@ Mejoras futuras posibles (no pedidas): instancia final/playoffs, goleadores, ord
 
 ## Notas operativas importantes
 
+- **Pendiente del profe (2026-09-17):** las zonas de Fase 2 tienen **`qualifiers_count` = 0**, así que
+  todavía no se pinta ningún clasificado en dorado. Lo define él desde «Zonas y fases».
+- **Interzonal desplegado el 2026-09-17, sin datos cargados todavía:** la lógica está probada con
+  datos de prueba, pero falta que el profe cargue el primer cruce real de las dos zonas de 3
+  de Fase 2 y confirme que las tablas quedan como espera.
+
 - **El store de Blob debe ser PÚBLICO.** Con un store privado la subida de logos falla
   (`Cannot use public access on a private store`). Store en uso: `torneo-logos-pub` (`BLOB_READ_WRITE_TOKEN`).
 - **Cambios de esquema:** editar `db/schema.sql` y ejecutarlo en el **SQL Editor de Neon** (es idempotente).
