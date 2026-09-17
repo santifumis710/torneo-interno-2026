@@ -179,6 +179,37 @@ export async function addTeamToZone(formData: FormData) {
   refresh();
 }
 
+/**
+ * Sube o baja un equipo dentro de la zona. Ese orden es el último desempate de la
+ * tabla de posiciones (Pts → DIF → GF → orden), así que es la forma de decidir quién
+ * va primero cuando todavía está todo empatado.
+ *
+ * Renumera la zona entera en vez de intercambiar dos `sort_order`: los valores que
+ * venían del backfill pueden estar repetidos, y así quedan siempre 0, 1, 2, …
+ */
+export async function moveTeamInZone(formData: FormData) {
+  await requireAuth();
+  const zoneId = Number(formData.get("zone_id"));
+  const teamId = Number(formData.get("team_id"));
+  const dir = String(formData.get("dir") ?? "");
+  if (!zoneId || !teamId || (dir !== "up" && dir !== "down")) return;
+
+  const sql = db();
+  const rows = (await sql`
+    SELECT team_id FROM zone_teams WHERE zone_id = ${zoneId} ORDER BY sort_order, team_id
+  `) as { team_id: number }[];
+  const ids = rows.map((r) => r.team_id);
+  const i = ids.indexOf(teamId);
+  const j = dir === "up" ? i - 1 : i + 1;
+  if (i < 0 || j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+
+  for (const [order, id] of ids.entries()) {
+    await sql`UPDATE zone_teams SET sort_order = ${order} WHERE zone_id = ${zoneId} AND team_id = ${id}`;
+  }
+  refresh();
+}
+
 /** Saca un equipo de una zona. El equipo (y sus jugadores) siguen existiendo. */
 export async function removeTeamFromZone(formData: FormData) {
   await requireAuth();

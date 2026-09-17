@@ -12,6 +12,7 @@ import {
   deleteTeam,
   addTeamToZone,
   removeTeamFromZone,
+  moveTeamInZone,
   createPlayer,
   updatePlayer,
   deletePlayer,
@@ -214,8 +215,15 @@ export default async function AdminPage({
                     <hr className="divider" />
 
                     {zoneTeams.length === 0 && <p className="hint">Sin equipos en esta zona.</p>}
-                    {zoneTeams.map((team) => (
+                    {zoneTeams.length > 1 && (
+                      <p className="hint">
+                        El orden de acá abajo decide quién va primero en la tabla cuando dos
+                        equipos están empatados en todo (puntos, diferencia y goles a favor).
+                      </p>
+                    )}
+                    {zoneTeams.map((team, i) => (
                       <div className="zteam-line" key={team.id}>
+                        <span className="zteam-pos">{i + 1}</span>
                         {team.logo_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img className="logo-mini" src={team.logo_url} alt={team.name} />
@@ -223,10 +231,36 @@ export default async function AdminPage({
                           <span className="logo-mini logo-mini-ph" />
                         )}
                         <span className="zteam-name">{team.name}</span>
+                        <form action={moveTeamInZone}>
+                          <input type="hidden" name="zone_id" value={zone.id} />
+                          <input type="hidden" name="team_id" value={team.id} />
+                          <input type="hidden" name="dir" value="up" />
+                          <button
+                            className="btn btn-sec btn-xs"
+                            type="submit"
+                            disabled={i === 0}
+                            aria-label={`Subir ${team.name}`}
+                          >
+                            ↑
+                          </button>
+                        </form>
+                        <form action={moveTeamInZone}>
+                          <input type="hidden" name="zone_id" value={zone.id} />
+                          <input type="hidden" name="team_id" value={team.id} />
+                          <input type="hidden" name="dir" value="down" />
+                          <button
+                            className="btn btn-sec btn-xs"
+                            type="submit"
+                            disabled={i === zoneTeams.length - 1}
+                            aria-label={`Bajar ${team.name}`}
+                          >
+                            ↓
+                          </button>
+                        </form>
                         <form action={removeTeamFromZone}>
                           <input type="hidden" name="zone_id" value={zone.id} />
                           <input type="hidden" name="team_id" value={team.id} />
-                          <button className="btn-danger btn-xs" type="submit">Quitar de la zona</button>
+                          <button className="btn-danger btn-xs" type="submit">Quitar</button>
                         </form>
                       </div>
                     ))}

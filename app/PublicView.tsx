@@ -83,14 +83,14 @@ function ZoneTable({ name, qualifiers, standings }: { name: string; qualifiers: 
                 <tr>
                   <th className="pos">#</th>
                   <th className="team">Equipo</th>
+                  <th>Pts</th>
                   <th>PJ</th>
                   <th>G</th>
                   <th>E</th>
                   <th>P</th>
+                  <th>DIF</th>
                   <th>GF</th>
                   <th>GC</th>
-                  <th>DIF</th>
-                  <th>Pts</th>
                 </tr>
               </thead>
               <tbody>
@@ -103,17 +103,17 @@ function ZoneTable({ name, qualifiers, standings }: { name: string; qualifiers: 
                       <TeamLogo team={r.team} />
                       <span className="team-name">{r.team.name}</span>
                     </td>
+                    <td className="pts">{r.pts}</td>
                     <td>{r.pj}</td>
                     <td>{r.g}</td>
                     <td>{r.e}</td>
                     <td>{r.p}</td>
-                    <td>{r.gf}</td>
-                    <td>{r.gc}</td>
                     <td>
                       {r.dif > 0 ? "+" : ""}
                       {r.dif}
                     </td>
-                    <td className="pts">{r.pts}</td>
+                    <td>{r.gf}</td>
+                    <td>{r.gc}</td>
                   </tr>
                 ))}
               </tbody>

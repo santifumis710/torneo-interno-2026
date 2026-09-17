@@ -139,4 +139,9 @@ details.team-block[open] > summary { margin-bottom: 8px; }
 .zteam-line { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
 .zteam-line:first-of-type { border-top: 0; }
 .zteam-name { flex: 1; font-size: 14px; font-weight: 600; }
+.zteam-pos {
+  flex: none; width: 22px; text-align: center; font-size: 12px; font-weight: 800;
+  color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.zteam-line .btn:disabled { opacity: .35; cursor: default; }
 .logo-mini-ph { display: block; }

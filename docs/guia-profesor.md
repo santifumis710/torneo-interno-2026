@@ -49,6 +49,9 @@ En **Zonas y fases** las zonas aparecen agrupadas por fase. En cada zona podés:
     mismos equipos de siempre.
   - **Quitar de la zona** → lo saca de esa zona **sin borrar** el equipo ni sus jugadores.
   - **Crear un equipo nuevo en esta zona** → para un equipo que todavía no existe.
+- **Ordenar los equipos con las flechas ↑ ↓.** Ese orden decide **quién aparece primero en
+  la tabla cuando dos equipos están empatados en todo** (mismos puntos, misma diferencia de
+  gol y mismos goles a favor) — por ejemplo al arrancar una fase, con todos en cero.
 - **Borrar zona** (se van también sus partidos). Un equipo que además juega en otra fase
   **no se borra**; solo se borran los que no jugaban en ninguna otra zona.
 

@@ -48,7 +48,14 @@ const DEFAULT_SETTINGS: Settings = {
   points_draw: 1,
 };
 
-/** Calcula la tabla de posiciones de una zona a partir de sus equipos y partidos jugados. */
+/**
+ * Calcula la tabla de posiciones de una zona a partir de sus equipos y partidos jugados.
+ *
+ * Desempate: Pts → DIF → GF y, si sigue igual, el **orden del equipo dentro de la zona**
+ * (el que llega en `teams`, que el profe acomoda desde el admin). Antes desempataba por
+ * nombre alfabético, que no lo decidía nadie: así una zona recién creada, con todos en 0,
+ * se ve en el orden que el profe quiso.
+ */
 export function computeStandings(
   teams: Team[],
   matches: MatchRow[],
@@ -56,8 +63,10 @@ export function computeStandings(
   pointsDraw: number,
 ): StandingRow[] {
   const table = new Map<number, StandingRow>();
-  for (const team of teams) {
+  const position = new Map<number, number>();
+  for (const [i, team] of teams.entries()) {
     table.set(team.id, { team, pj: 0, g: 0, e: 0, p: 0, gf: 0, gc: 0, dif: 0, pts: 0 });
+    position.set(team.id, i);
   }
 
   for (const m of matches) {
@@ -91,7 +100,13 @@ export function computeStandings(
 
   const rows = [...table.values()];
   for (const r of rows) r.dif = r.gf - r.gc;
-  rows.sort((a, b) => b.pts - a.pts || b.dif - a.dif || b.gf - a.gf || a.team.name.localeCompare(b.team.name));
+  rows.sort(
+    (a, b) =>
+      b.pts - a.pts ||
+      b.dif - a.dif ||
+      b.gf - a.gf ||
+      (position.get(a.team.id) ?? 0) - (position.get(b.team.id) ?? 0),
+  );
   return rows;
 }
 
