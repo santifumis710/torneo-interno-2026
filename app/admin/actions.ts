@@ -75,13 +75,15 @@ export async function createZone(formData: FormData) {
   await requireAuth();
   const name = String(formData.get("name") ?? "").trim();
   const qualifiers = Number(formData.get("qualifiers_count") ?? 4);
+  const phaseRaw = Number(formData.get("phase") ?? 1);
+  const phase = Number.isFinite(phaseRaw) && phaseRaw > 0 ? phaseRaw : 1;
   if (!name) return;
 
   const sql = db();
   await sql`
-    INSERT INTO zones (name, qualifiers_count, sort_order)
-    VALUES (${name}, ${Number.isFinite(qualifiers) ? qualifiers : 4},
-            COALESCE((SELECT MAX(sort_order) + 1 FROM zones), 0))`;
+    INSERT INTO zones (name, qualifiers_count, phase, sort_order)
+    VALUES (${name}, ${Number.isFinite(qualifiers) ? qualifiers : 4}, ${phase},
+            COALESCE((SELECT MAX(sort_order) + 1 FROM zones WHERE phase = ${phase}), 0))`;
   refresh();
 }
 
@@ -105,7 +107,18 @@ export async function deleteZone(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
   const sql = db();
-  // Junto los blobs (escudos + fotos de jugadores) antes de borrar en cascada.
+  // Un equipo que también juega en otra zona (otra fase) no se borra con la zona:
+  // se le reasigna la zona "de origen" antes de que actúe el ON DELETE CASCADE.
+  await sql`
+    UPDATE teams t
+    SET zone_id = (
+      SELECT zt.zone_id FROM zone_teams zt
+      WHERE zt.team_id = t.id AND zt.zone_id <> ${id}
+      ORDER BY zt.zone_id LIMIT 1
+    )
+    WHERE t.zone_id = ${id}
+      AND EXISTS (SELECT 1 FROM zone_teams zt WHERE zt.team_id = t.id AND zt.zone_id <> ${id})`;
+  // Junto los blobs (escudos + fotos de jugadores) de los que sí se van a borrar.
   const rows = (await sql`
     SELECT logo_url AS url FROM teams WHERE zone_id = ${id}
     UNION ALL
@@ -125,10 +138,18 @@ export async function createTeam(formData: FormData) {
   if (!zoneId || !name) return;
 
   const sql = db();
-  await sql`
+  const rows = (await sql`
     INSERT INTO teams (zone_id, name, sort_order)
     VALUES (${zoneId}, ${name},
-            COALESCE((SELECT MAX(sort_order) + 1 FROM teams WHERE zone_id = ${zoneId}), 0))`;
+            COALESCE((SELECT MAX(sort_order) + 1 FROM teams WHERE zone_id = ${zoneId}), 0))
+    RETURNING id`) as { id: number }[];
+  const teamId = rows[0]?.id;
+  if (teamId) {
+    await sql`
+      INSERT INTO zone_teams (zone_id, team_id, sort_order)
+      VALUES (${zoneId}, ${teamId}, COALESCE((SELECT MAX(sort_order) + 1 FROM zone_teams WHERE zone_id = ${zoneId}), 0))
+      ON CONFLICT (zone_id, team_id) DO NOTHING`;
+  }
   refresh();
 }
 
@@ -136,11 +157,37 @@ export async function updateTeam(formData: FormData) {
   await requireAuth();
   const id = Number(formData.get("id"));
   const name = String(formData.get("name") ?? "").trim();
-  const zoneId = Number(formData.get("zone_id"));
-  if (!id || !name || !zoneId) return;
+  if (!id || !name) return;
 
   const sql = db();
-  await sql`UPDATE teams SET name = ${name}, zone_id = ${zoneId} WHERE id = ${id}`;
+  await sql`UPDATE teams SET name = ${name} WHERE id = ${id}`;
+  refresh();
+}
+
+/** Suma un equipo ya existente a una zona (así se arman las zonas de Fase 2). */
+export async function addTeamToZone(formData: FormData) {
+  await requireAuth();
+  const zoneId = Number(formData.get("zone_id"));
+  const teamId = Number(formData.get("team_id"));
+  if (!zoneId || !teamId) return;
+
+  const sql = db();
+  await sql`
+    INSERT INTO zone_teams (zone_id, team_id, sort_order)
+    VALUES (${zoneId}, ${teamId}, COALESCE((SELECT MAX(sort_order) + 1 FROM zone_teams WHERE zone_id = ${zoneId}), 0))
+    ON CONFLICT (zone_id, team_id) DO NOTHING`;
+  refresh();
+}
+
+/** Saca un equipo de una zona. El equipo (y sus jugadores) siguen existiendo. */
+export async function removeTeamFromZone(formData: FormData) {
+  await requireAuth();
+  const zoneId = Number(formData.get("zone_id"));
+  const teamId = Number(formData.get("team_id"));
+  if (!zoneId || !teamId) return;
+
+  const sql = db();
+  await sql`DELETE FROM zone_teams WHERE zone_id = ${zoneId} AND team_id = ${teamId}`;
   refresh();
 }
 
@@ -387,56 +434,5 @@ export async function deleteChampion(formData: FormData) {
   if (!id) return;
   const sql = db();
   await sql`DELETE FROM champions WHERE id = ${id}`;
-  refresh();
-}
-
-/* ---------- Playoffs (cruces del cuadro) ---------- */
-
-export async function createTie(formData: FormData) {
-  await requireAuth();
-  const round = Number(formData.get("round"));
-  const homeLabel = String(formData.get("home_label") ?? "").trim() || null;
-  const awayLabel = String(formData.get("away_label") ?? "").trim() || null;
-  if (!Number.isFinite(round)) return;
-
-  const sql = db();
-  await sql`
-    INSERT INTO playoff_ties (round, sort_order, home_label, away_label, played)
-    VALUES (${round}, COALESCE((SELECT MAX(sort_order) + 1 FROM playoff_ties WHERE round = ${round}), 0),
-            ${homeLabel}, ${awayLabel}, FALSE)`;
-  refresh();
-}
-
-export async function updateTie(formData: FormData) {
-  await requireAuth();
-  const id = Number(formData.get("id"));
-  if (!id) return;
-  const homeLabel = String(formData.get("home_label") ?? "").trim() || null;
-  const awayLabel = String(formData.get("away_label") ?? "").trim() || null;
-  const homeTeam = Number(formData.get("home_team_id")) || null;
-  const awayTeam = Number(formData.get("away_team_id")) || null;
-  const homeRaw = String(formData.get("home_score") ?? "").trim();
-  const awayRaw = String(formData.get("away_score") ?? "").trim();
-
-  const bothScores = homeRaw !== "" && awayRaw !== "";
-  const homeScore = bothScores ? Number(homeRaw) : null;
-  const awayScore = bothScores ? Number(awayRaw) : null;
-
-  const sql = db();
-  await sql`
-    UPDATE playoff_ties
-    SET home_label = ${homeLabel}, away_label = ${awayLabel},
-        home_team_id = ${homeTeam}, away_team_id = ${awayTeam},
-        home_score = ${homeScore}, away_score = ${awayScore}, played = ${bothScores}
-    WHERE id = ${id}`;
-  refresh();
-}
-
-export async function deleteTie(formData: FormData) {
-  await requireAuth();
-  const id = Number(formData.get("id"));
-  if (!id) return;
-  const sql = db();
-  await sql`DELETE FROM playoff_ties WHERE id = ${id}`;
   refresh();
 }

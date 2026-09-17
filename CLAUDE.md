@@ -1,7 +1,7 @@
 # CLAUDE.md — Torneo Interno 2026
 
 > Documento de contexto clave para cualquier agente que trabaje en este proyecto.
-> Mantener actualizado a medida que se toman decisiones. **Última actualización: 2026-08-07.**
+> Mantener actualizado a medida que se toman decisiones. **Última actualización: 2026-09-17.**
 
 ## Qué es este proyecto
 
@@ -10,7 +10,7 @@ El contenido lo carga el **profesor** (no el desarrollador) desde un **panel de 
 simple. Prioridad #1 del producto: que el profesor cargue datos sin fricción.
 
 Dos audiencias:
-- **Público (solo lectura):** ven posiciones, equipos, fixture y playoffs.
+- **Público (solo lectura):** ven las posiciones de cada fase, equipos, fixture e historial.
 - **Admin (profesor):** carga y edita todo en `/admin`.
 
 🔗 **Producción:** https://utn-torneo-interno-2026.vercel.app · **Repo:** https://github.com/santifumis710/torneo-interno-2026
@@ -26,18 +26,19 @@ Dos audiencias:
 - `app/page.tsx` (server) → lee la base → `app/PublicView.tsx` (cliente) renderiza las pestañas.
 - `app/admin/page.tsx` (protegida) → panel; `app/admin/actions.ts` → server actions (ABM).
 - `app/tournament.css` (público) y `app/admin/admin.css` (admin); tokens/tema en `app/globals.css`.
-- `db/schema.sql` (idempotente) + `db/setup.mjs` (`npm run db:setup`).
+- `db/schema.sql` (idempotente) + `db/setup.mjs` (`npm run db:setup`); `db/fase2.sql` arma las zonas de Fase 2.
 
 ## Puntos clave del producto (implementado)
 
 - **Todo editable desde el admin:** nombre/subtítulo/logo del torneo, zonas, equipos, jugadores, partidos y playoffs. Sin nombres de zona hardcodeados.
 - **Tabla de posiciones calculada sola** desde `matches` jugados (`computeStandings`). Desempate **Pts → DIF → GF**. Puntos configurables (3/1/0 por defecto).
 - **Estructura configurable:** zonas y cantidad de equipos dinámicas. Cada zona define cuántos clasifican → se pintan en **dorado**.
-- **Playoffs:** cruces editables por instancia (Cuartos/Semis/Final) con referencia (ej. 1°A), asignación de equipo y resultados. Avance de ganadores **manual**.
+- **Fases:** `zones.phase` (1, 2, …) y **`zone_teams`** (many-to-many) porque en Fase 2 los mismos equipos se reagrupan en zonas nuevas. `teams.zone_id` queda solo por compatibilidad/cascade: la fuente de verdad de "qué equipos hay en esta zona" es `zone_teams`. Los partidos heredan la fase de su zona (`matches` sin columna nueva). La etiqueta se genera (`Fase N`), no se hardcodea.
+- **Playoffs eliminados de la UI** (nunca se usaron). La tabla `playoff_ties` sigue en la base, sin uso.
 - **Fecha y hora de partidos** (`scheduled_at`): editable en el admin; el **fixture se ordena por fecha/hora** y la muestra en horario de Argentina (UTC-3). Convive con el número de jornada (`matchday`).
 - **Fotos de jugadores** (`players.photo_url`): el profe las sube desde el admin; se procesan como recorte cuadrado JPEG (sin quita-fondo) y se ven como avatar en el roster.
-- **Vista pública** con pestañas **Posiciones / Equipos / Fixture / Playoffs / Historial**, responsive y tema claro/oscuro.
-- **Fixture con filtro por equipo:** además de agrupar por zona/fecha/día, se puede elegir un equipo y ver solo sus partidos ordenados por número de fecha. Reemplaza a la vieja pestaña "Mi equipo".
+- **Vista pública** con pestañas **una por fase (Fase 2, Fase 1, …) / Equipos / Fixture / Historial**, responsive y tema claro/oscuro. Abre en la fase más nueva. **Equipos** va sin agrupar (una sola grilla).
+- **Fixture por fase:** el selector de fase es **obligatorio** (los números de fecha se repiten entre fases) y recién dentro se agrupa por zona/fecha/día. Con **filtro por equipo** no hace falta: se muestran todas las fases, una debajo de la otra, ordenadas por número de fecha.
 - **Fechas libres deducidas** (`lib/byes.ts`): con zonas impares, si una fecha tiene los `floor(equipos/2)` partidos cargados y falta exactamente un equipo, ese equipo figura **Libre**. Fecha incompleta ⇒ no se afirma nada. Se ve en el filtro por equipo y en el agrupado "Por fecha"; **no** en "Por zona" ni "Por día/hora". Sin cambios de base.
 - **Historial de campeones** (tabla `champions`): ediciones anteriores, editables desde el admin. `season` es texto y el orden lo da `sort_order`.
 
@@ -46,13 +47,16 @@ Dos audiencias:
 🟢 **Terminado según el alcance planificado y desplegado en producción.**
 Detalle de features y uso en `README.md` y `docs/guia-profesor.md`.
 
-Mejoras futuras posibles (no pedidas): 3er puesto/más rondas, goleadores, orden manual de equipos/jugadores.
+- **Admin por secciones plegables** (`<details>`): 1) Partidos y resultados (abierta, con selector de fase vía `?fase=N`), 2) Zonas y fases, 3) Equipos y jugadores, 4) Historial, 5) Torneo. El profe ya no carga equipos/jugadores ni toca Fase 1: sigue todo disponible pero fuera del camino.
+
+Mejoras futuras posibles (no pedidas): instancia final/playoffs, goleadores, orden manual de equipos/jugadores.
 
 ## Notas operativas importantes
 
 - **El store de Blob debe ser PÚBLICO.** Con un store privado la subida de logos falla
   (`Cannot use public access on a private store`). Store en uso: `torneo-logos-pub` (`BLOB_READ_WRITE_TOKEN`).
 - **Cambios de esquema:** editar `db/schema.sql` y ejecutarlo en el **SQL Editor de Neon** (es idempotente).
+- **Pendiente de correr en Neon (2026-09-17):** `db/schema.sql` (agrega `zones.phase` + `zone_teams` y hace el backfill) y después `db/fase2.sql` (crea las 4 zonas de Fase 2 y les asigna los equipos por nombre; la última consulta lista los nombres que no matchearon). Hasta que se corra, la web toma todo como Fase 1 (hay fallback).
 - **Secretos redactados en el entorno del agente:** al hacer `vercel env pull`, los valores sensibles
   llegan como `[SENSITIVE]`. Por eso no se puede correr `db:setup` ni conectar a la base desde el agente;
   las tablas se crean pegando el SQL en Neon y se prueba vía deploys de Vercel.
@@ -64,3 +68,13 @@ Mejoras futuras posibles (no pedidas): 3er puesto/más rondas, goleadores, orden
 3. No hardcodear datos del torneo (nombres de zonas, equipos, etc.): todo sale de la base.
 4. Verificar cambios con `npm run build` antes de commitear; las escrituras a la base se prueban en el deploy.
 5. Confirmar (o probar) con el usuario antes de dar por cerrado algo que toca la base o el deploy.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

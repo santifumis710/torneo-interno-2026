@@ -87,14 +87,6 @@ input:focus, select:focus { outline: 2px solid var(--brand-2); outline-offset: 1
   border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 7px; padding: 5px 10px;
 }
 
-.tie-line { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
-.tie-line:first-of-type { border-top: 0; }
-.tie-edit { display: flex; gap: 6px; align-items: center; flex: 1; flex-wrap: wrap; }
-.tie-edit select { flex: 1 1 130px; min-width: 110px; }
-.tlabel { flex: 0 0 62px; text-align: center; }
-.tie-add { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
-.tie-add .tlabel { flex: 0 0 90px; }
-
 /* Historial de campeones */
 .champ-line { display: flex; gap: 8px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
 .champ-line:first-of-type { border-top: 0; }
@@ -105,3 +97,46 @@ input:focus, select:focus { outline: 2px solid var(--brand-2); outline-offset: 1
 .login-box .a-card { text-align: left; }
 .err { color: var(--loss); font-size: 13px; margin: 0 0 12px; font-weight: 600; }
 .back-link { display: inline-block; margin-top: 14px; font-size: 13px; color: var(--brand-2); font-weight: 600; }
+
+/* Secciones plegables del panel: el profe abre solo la que necesita. */
+details.a-card > summary {
+  display: flex; align-items: center; gap: 10px; cursor: pointer; list-style: none;
+}
+details.a-card > summary::-webkit-details-marker { display: none; }
+details.a-card > summary::before {
+  content: "▸"; color: var(--muted); font-size: 13px; transition: transform .15s ease;
+}
+details.a-card[open] > summary::before { transform: rotate(90deg); }
+details.a-card > summary h2 { margin: 0; font-size: 16px; font-weight: 800; }
+details.a-card[open] > summary {
+  margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--line);
+}
+.sum-hint { margin-left: auto; font-size: 12px; color: var(--muted); font-weight: 600; text-align: right; }
+
+details.team-block > summary {
+  display: flex; align-items: center; gap: 10px; cursor: pointer; list-style: none;
+}
+details.team-block > summary::-webkit-details-marker { display: none; }
+details.team-block > summary::before { content: "▸"; color: var(--muted); font-size: 12px; }
+details.team-block[open] > summary::before { content: "▾"; }
+details.team-block[open] > summary { margin-bottom: 8px; }
+
+/* Selector de fase (links, porque el panel es server-side) */
+.phase-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.chip {
+  font-size: 13px; font-weight: 700; padding: 7px 14px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface-2); color: var(--muted);
+  cursor: pointer; text-decoration: none;
+}
+.chip.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+.phase-h {
+  margin: 18px 0 8px; font-size: 12px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .6px; color: var(--muted);
+}
+
+/* Equipos dentro de una zona */
+.zteam-line { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+.zteam-line:first-of-type { border-top: 0; }
+.zteam-name { flex: 1; font-size: 14px; font-weight: 600; }
+.logo-mini-ph { display: block; }

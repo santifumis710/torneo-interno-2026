@@ -85,6 +85,26 @@ CREATE TABLE IF NOT EXISTS champions (
 ALTER TABLE players ADD COLUMN IF NOT EXISTS photo_url TEXT;        -- foto del jugador (Vercel Blob)
 ALTER TABLE matches ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ; -- fecha/hora del partido
 
+-- Fases del torneo: cada zona pertenece a una fase (1, 2, ...). Los partidos
+-- heredan la fase de su zona, así que `matches` no necesita columna propia.
+ALTER TABLE zones ADD COLUMN IF NOT EXISTS phase INT NOT NULL DEFAULT 1;
+
+-- Un equipo puede estar en una zona por fase (en Fase 2 se reagrupan los mismos
+-- equipos), así que la pertenencia vive acá y no en `teams.zone_id`.
+-- `teams.zone_id` queda como zona "de origen" (Fase 1) por compatibilidad.
+CREATE TABLE IF NOT EXISTS zone_teams (
+  zone_id     INT NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+  team_id     INT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  sort_order  INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (zone_id, team_id)
+);
+CREATE INDEX IF NOT EXISTS zone_teams_team_idx ON zone_teams(team_id);
+
+-- Backfill: la pertenencia que hoy vive en teams.zone_id pasa a zone_teams.
+INSERT INTO zone_teams (zone_id, team_id, sort_order)
+SELECT zone_id, id, sort_order FROM teams
+ON CONFLICT (zone_id, team_id) DO NOTHING;
+
 -- Semilla del historial de campeones (solo si la tabla está vacía; después se edita desde el admin).
 INSERT INTO champions (season, champion, sort_order)
 SELECT * FROM (VALUES

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import "./tournament.css";
 import { computeByes } from "@/lib/byes";
-import type { MatchRow, Player, PublicData, StandingRow, Team } from "@/lib/queries";
+import type { MatchRow, Player, PublicData, PublicZone, StandingRow, Team } from "@/lib/queries";
 
 const COLORS = ["#123a86", "#1f9d55", "#d94a3d", "#7a3fb0", "#0d8f9e", "#c85a12", "#334155", "#b02a5b"];
 
@@ -119,26 +119,16 @@ function ZoneTable({ name, qualifiers, standings }: { name: string; qualifiers: 
               </tbody>
             </table>
           </div>
-          <div className="legend">
-            <span className="swatch" /> Zona de clasificación a playoffs
-          </div>
+          {qualifiers > 0 && (
+            <div className="legend">
+              <span className="swatch" /> Zona de clasificación
+            </div>
+          )}
         </>
       )}
     </div>
   );
 }
-
-const ROUND_NAMES: Record<number, string> = { 0: "Cuartos", 1: "Semifinales", 2: "Final", 3: "Definición" };
-
-type TabKey = "posiciones" | "equipos" | "fixture" | "playoffs" | "historial";
-const TAB_LABELS: Record<TabKey, string> = {
-  posiciones: "Posiciones",
-  equipos: "Equipos",
-  fixture: "Fixture",
-  playoffs: "Playoffs",
-  historial: "Historial",
-};
-const TAB_ORDER: TabKey[] = ["posiciones", "equipos", "fixture", "playoffs", "historial"];
 
 type FixtureSort = "zona" | "fecha" | "dia";
 const FIXTURE_SORT_LABELS: Record<FixtureSort, string> = {
@@ -147,11 +137,28 @@ const FIXTURE_SORT_LABELS: Record<FixtureSort, string> = {
   dia: "Por día/hora",
 };
 
+/** Nombre visible de una fase. Las fases salen de las zonas cargadas, no están hardcodeadas. */
+const phaseLabel = (phase: number) => `Fase ${phase}`;
+
 export default function PublicView({ data }: { data: PublicData }) {
-  const [tab, setTab] = useState<TabKey>("posiciones");
+  const { settings, zones, teams, teamsById, playersByTeam, champions } = data;
+
+  // Fases existentes, de la más nueva a la más vieja (Fase 2, Fase 1, ...).
+  const phases = [...new Set(zones.map((z) => z.zone.phase))].sort((a, b) => b - a);
+  const latestPhase = phases[0] ?? 1;
+
+  const [tab, setTab] = useState<string>(phases.length > 0 ? `fase${latestPhase}` : "equipos");
   const [fixtureSort, setFixtureSort] = useState<FixtureSort>("zona");
   const [fixtureTeamId, setFixtureTeamId] = useState<number | null>(null);
-  const { settings, zones, ties, teamsById, playersByTeam, champions } = data;
+  // El fixture siempre se mira de a una fase: los números de fecha se repiten entre fases.
+  const [fixturePhase, setFixturePhase] = useState<number>(latestPhase);
+
+  const tabs: { key: string; label: string }[] = [
+    ...phases.map((p) => ({ key: `fase${p}`, label: phaseLabel(p) })),
+    { key: "equipos", label: "Equipos" },
+    { key: "fixture", label: "Fixture" },
+    { key: "historial", label: "Historial" },
+  ];
 
   function toggleTheme() {
     const root = document.documentElement;
@@ -209,7 +216,6 @@ export default function PublicView({ data }: { data: PublicData }) {
     </div>
   );
 
-  const rounds = [...new Set(ties.map((t) => t.round))].sort((a, b) => a - b);
   const anyMatches = zones.some((z) => z.matches.length > 0);
 
   // Agrupa los partidos del fixture según el modo elegido (zona, fecha/jornada o día/hora).
@@ -223,86 +229,98 @@ export default function PublicView({ data }: { data: PublicData }) {
   // Fechas libres deducidas de los partidos cargados, por zona.
   const byesByZone = new Map(zones.map((z) => [z.zone.id, computeByes(z.teams, z.matches)]));
 
-  const allFixtureItems: FixtureItem[] = zones.flatMap((z) =>
-    z.matches.map((m) => ({ kind: "match" as const, m, zoneName: z.zone.name })),
-  );
+  const itemsOf = (zs: PublicZone[]): FixtureItem[] =>
+    zs.flatMap((z) => z.matches.map((m) => ({ kind: "match" as const, m, zoneName: z.zone.name })));
   const timeOf = (it: FixtureItem) =>
     it.kind === "match" && it.m.scheduled_at ? new Date(it.m.scheduled_at).getTime() : Infinity;
   const mdOf = (it: FixtureItem) => (it.kind === "bye" ? it.matchday : it.m.matchday ?? Infinity);
 
-  let fixtureGroups: FixtureGroup[] = [];
-  if (fixtureTeamId !== null) {
-    // Filtro por equipo: una sola lista con sus partidos y sus fechas libres,
-    // todo ordenado por número de fecha (1, 2, 3…).
-    const teamZone = zones.find((z) => z.teams.some((t) => t.id === fixtureTeamId));
-    const teamByes: FixtureItem[] = [];
-    if (teamZone) {
-      for (const [matchday, team] of byesByZone.get(teamZone.zone.id) ?? []) {
-        if (team.id === fixtureTeamId) {
-          teamByes.push({ kind: "bye", matchday, zoneName: teamZone.zone.name });
-        }
+  /** Agrupa los partidos de las zonas de una fase según el modo elegido. */
+  function groupsFor(zs: PublicZone[], sort: FixtureSort, prefix: string): FixtureGroup[] {
+    if (sort === "zona") {
+      return zs
+        .filter((z) => z.matches.length > 0)
+        .map((z) => ({
+          key: `${prefix}z${z.zone.id}`,
+          title: z.zone.name,
+          items: z.matches.map((m) => ({ kind: "match" as const, m, zoneName: z.zone.name })),
+        }));
+    }
+
+    const all = itemsOf(zs);
+    if (sort === "fecha") {
+      const byDay = new Map<number | null, FixtureItem[]>();
+      for (const it of all) {
+        const key = it.kind === "match" ? it.m.matchday ?? null : it.matchday;
+        (byDay.get(key) ?? byDay.set(key, []).get(key)!).push(it);
       }
-    }
-    const items = [
-      ...allFixtureItems.filter(
-        (it) => it.kind === "match" && (it.m.home_team_id === fixtureTeamId || it.m.away_team_id === fixtureTeamId),
-      ),
-      ...teamByes,
-    ].sort((x, y) => mdOf(x) - mdOf(y) || timeOf(x) - timeOf(y));
-    fixtureGroups = [
-      {
-        key: `t${fixtureTeamId}`,
-        title: teamsById[fixtureTeamId]?.name ?? "Equipo",
-        items,
-      },
-    ];
-  } else if (fixtureSort === "zona") {
-    fixtureGroups = zones
-      .filter((z) => z.matches.length > 0)
-      .map((z) => ({
-        key: `z${z.zone.id}`,
-        title: z.zone.name,
-        items: z.matches.map((m) => ({ kind: "match" as const, m, zoneName: z.zone.name })),
+      const keys = [...byDay.keys()].sort((a, b) => {
+        if (a === null) return 1;
+        if (b === null) return -1;
+        return a - b;
+      });
+      // Cada grupo es una fecha, así que los libres de esa fecha van al pie de la tarjeta.
+      return keys.map((k) => ({
+        key: `${prefix}f${k ?? "none"}`,
+        title: k === null ? "Sin fecha asignada" : `Fecha ${k}`,
+        items: byDay.get(k)!.slice().sort((x, y) => timeOf(x) - timeOf(y)),
+        byes:
+          k === null
+            ? undefined
+            : zs.flatMap((z) => {
+                const team = byesByZone.get(z.zone.id)?.get(k);
+                return team ? [{ teamName: team.name, zoneName: z.zone.name }] : [];
+              }),
       }));
-  } else if (fixtureSort === "fecha") {
-    const byDay = new Map<number | null, FixtureItem[]>();
-    for (const it of allFixtureItems) {
-      const key = it.kind === "match" ? it.m.matchday ?? null : it.matchday;
-      (byDay.get(key) ?? byDay.set(key, []).get(key)!).push(it);
     }
-    const keys = [...byDay.keys()].sort((a, b) => {
-      if (a === null) return 1;
-      if (b === null) return -1;
-      return a - b;
-    });
-    // Cada grupo es una fecha, así que los libres de esa fecha van al pie de la tarjeta.
-    fixtureGroups = keys.map((k) => ({
-      key: `f${k ?? "none"}`,
-      title: k === null ? "Sin fecha asignada" : `Fecha ${k}`,
-      items: byDay.get(k)!.slice().sort((x, y) => timeOf(x) - timeOf(y)),
-      byes:
-        k === null
-          ? undefined
-          : zones.flatMap((z) => {
-              const team = byesByZone.get(z.zone.id)?.get(k);
-              return team ? [{ teamName: team.name, zoneName: z.zone.name }] : [];
-            }),
-    }));
-  } else {
+
     const byDate = new Map<string, FixtureItem[]>();
-    for (const it of allFixtureItems) {
-      const key =
-        it.kind === "match" && it.m.scheduled_at ? formatMatchDay(it.m.scheduled_at) : "￿Sin día asignado";
+    for (const it of all) {
+      const key = it.kind === "match" && it.m.scheduled_at ? formatMatchDay(it.m.scheduled_at) : "￿Sin día asignado";
       (byDate.get(key) ?? byDate.set(key, []).get(key)!).push(it);
     }
     const sorted = [...byDate.entries()].sort(([, a], [, b]) => timeOf(a[0]) - timeOf(b[0]));
-    fixtureGroups = sorted.map(([title, items]) => ({
-      key: `d${title}`,
+    return sorted.map(([title, items]) => ({
+      key: `${prefix}d${title}`,
       title: title.startsWith("￿") ? "Sin día asignado" : title[0].toUpperCase() + title.slice(1),
       items: items.slice().sort((x, y) => timeOf(x) - timeOf(y)),
     }));
   }
-  const anyTeams = zones.some((z) => z.teams.length > 0);
+
+  let fixtureGroups: FixtureGroup[];
+  if (fixtureTeamId !== null) {
+    // Filtro por equipo: no hace falta elegir fase, se muestran todas una debajo de
+    // la otra, cada una con sus partidos y fechas libres ordenados por número de fecha.
+    fixtureGroups = phases.flatMap((phase) => {
+      const phaseZones = zones.filter((z) => z.zone.phase === phase);
+      const teamZone = phaseZones.find((z) => z.teams.some((t) => t.id === fixtureTeamId));
+      if (!teamZone) return [];
+      const teamByes: FixtureItem[] = [];
+      for (const [matchday, team] of byesByZone.get(teamZone.zone.id) ?? []) {
+        if (team.id === fixtureTeamId) teamByes.push({ kind: "bye", matchday, zoneName: teamZone.zone.name });
+      }
+      const items = [
+        ...itemsOf(phaseZones).filter(
+          (it) => it.kind === "match" && (it.m.home_team_id === fixtureTeamId || it.m.away_team_id === fixtureTeamId),
+        ),
+        ...teamByes,
+      ].sort((x, y) => mdOf(x) - mdOf(y) || timeOf(x) - timeOf(y));
+      return [
+        {
+          key: `t${fixtureTeamId}-p${phase}`,
+          title: `${phaseLabel(phase)} · ${teamZone.zone.name}`,
+          items,
+        },
+      ];
+    });
+  } else {
+    fixtureGroups = groupsFor(
+      zones.filter((z) => z.zone.phase === fixturePhase),
+      fixtureSort,
+      `p${fixturePhase}-`,
+    );
+  }
+
 
   return (
     <>
@@ -327,70 +345,70 @@ export default function PublicView({ data }: { data: PublicData }) {
 
       <main className="wrap">
         <div className="tabs" role="tablist">
-          {TAB_ORDER.map((t) => (
-            <button key={t} className="tab" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
-              {TAB_LABELS[t]}
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              className="tab"
+              role="tab"
+              aria-selected={tab === t.key}
+              onClick={() => setTab(t.key)}
+            >
+              {t.label}
             </button>
           ))}
         </div>
 
-        {tab === "posiciones" &&
-          (zones.length === 0 ? (
-            <div className="card empty">Todavía no hay zonas cargadas.</div>
-          ) : (
-            <section className="panel">
-              <div className="zones">
-                {zones.map((z) => (
-                  <ZoneTable
-                    key={z.zone.id}
-                    name={z.zone.name}
-                    qualifiers={z.zone.qualifiers_count}
-                    standings={z.standings}
-                  />
-                ))}
-              </div>
-              <p className="note">Los primeros de cada zona clasifican al playoff.</p>
-            </section>
-          ))}
+        {phases.map((phase) => {
+          const phaseZones = zones.filter((z) => z.zone.phase === phase);
+          return (
+            tab === `fase${phase}` && (
+              <section className="panel" key={phase}>
+                <div className="zones">
+                  {phaseZones.map((z) => (
+                    <ZoneTable
+                      key={z.zone.id}
+                      name={z.zone.name}
+                      qualifiers={z.zone.qualifiers_count}
+                      standings={z.standings}
+                    />
+                  ))}
+                </div>
+              </section>
+            )
+          );
+        })}
 
         {tab === "equipos" &&
-          (!anyTeams ? (
+          (teams.length === 0 ? (
             <div className="card empty">Todavía no hay equipos cargados.</div>
           ) : (
             <section className="panel">
-              {zones
-                .filter((z) => z.teams.length > 0)
-                .map((z) => (
-                  <div key={z.zone.id}>
-                    <div className="zone-title">{z.zone.name}</div>
-                    <div className="teams-grid">
-                      {z.teams.map((team) => {
-                        const roster = playersByTeam[team.id] ?? [];
-                        return (
-                          <div className="card" key={team.id}>
-                            <div className="team-card-head">
-                              <TeamLogo team={team} />
-                              <span className="name">{team.name}</span>
-                            </div>
-                            {roster.length === 0 ? (
-                              <div className="empty-r">Sin jugadores cargados.</div>
-                            ) : (
-                              <ul className="roster">
-                                {roster.map((pl) => (
-                                  <li key={pl.id}>
-                                    <PlayerAvatar player={pl} />
-                                    <span className="pnum">{pl.number ?? "–"}</span>
-                                    <span>{pl.name}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        );
-                      })}
+              <div className="teams-grid">
+                {teams.map((team) => {
+                  const roster = playersByTeam[team.id] ?? [];
+                  return (
+                    <div className="card" key={team.id}>
+                      <div className="team-card-head">
+                        <TeamLogo team={team} />
+                        <span className="name">{team.name}</span>
+                      </div>
+                      {roster.length === 0 ? (
+                        <div className="empty-r">Sin jugadores cargados.</div>
+                      ) : (
+                        <ul className="roster">
+                          {roster.map((pl) => (
+                            <li key={pl.id}>
+                              <PlayerAvatar player={pl} />
+                              <span className="pnum">{pl.number ?? "–"}</span>
+                              <span>{pl.name}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
             </section>
           ))}
 
@@ -399,6 +417,22 @@ export default function PublicView({ data }: { data: PublicData }) {
             <div className="card empty">Todavía no hay partidos cargados.</div>
           ) : (
             <section className="panel">
+              {fixtureTeamId === null && phases.length > 1 && (
+                <div className="fixture-controls" role="group" aria-label="Elegir fase">
+                  {phases.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      className={`chip chip-phase ${fixturePhase === p ? "active" : ""}`}
+                      aria-pressed={fixturePhase === p}
+                      onClick={() => setFixturePhase(p)}
+                    >
+                      {phaseLabel(p)}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div className="fixture-controls" role="group" aria-label="Ordenar fixture">
                 {fixtureTeamId === null &&
                   (Object.keys(FIXTURE_SORT_LABELS) as FixtureSort[]).map((k) => (
@@ -419,15 +453,9 @@ export default function PublicView({ data }: { data: PublicData }) {
                   onChange={(e) => setFixtureTeamId(e.target.value ? Number(e.target.value) : null)}
                 >
                   <option value="">Todos los equipos</option>
-                  {zones
-                    .filter((z) => z.teams.length > 0)
-                    .map((z) => (
-                      <optgroup key={z.zone.id} label={z.zone.name}>
-                        {z.teams.map((t) => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
-                      </optgroup>
-                    ))}
+                  {teams.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
                 </select>
               </div>
 
@@ -453,45 +481,6 @@ export default function PublicView({ data }: { data: PublicData }) {
                   )}
                 </div>
               ))}
-            </section>
-          ))}
-
-        {tab === "playoffs" &&
-          (ties.length === 0 ? (
-            <div className="card empty">Todavía no hay playoffs definidos.</div>
-          ) : (
-            <section className="panel">
-              <div className="card" style={{ padding: 16 }}>
-                <div className="bracket">
-                  {rounds.map((round) => (
-                    <div key={round}>
-                      <div className="round-h">{ROUND_NAMES[round] ?? `Ronda ${round + 1}`}</div>
-                      <div className="round">
-                        {ties
-                          .filter((t) => t.round === round)
-                          .map((t) => (
-                            <div className="tie" key={t.id}>
-                              <div className={`tie-row ${t.played && (t.home_score ?? 0) > (t.away_score ?? 0) ? "win" : ""}`}>
-                                <span className="tie-name">
-                                  {t.home_label && <span className="seed">{t.home_label}</span>}
-                                  {nameOf(t.home_team_id, t.home_label)}
-                                </span>
-                                <span className="tie-score">{t.played ? t.home_score : "—"}</span>
-                              </div>
-                              <div className={`tie-row ${t.played && (t.away_score ?? 0) > (t.home_score ?? 0) ? "win" : ""}`}>
-                                <span className="tie-name">
-                                  {t.away_label && <span className="seed">{t.away_label}</span>}
-                                  {nameOf(t.away_team_id, t.away_label)}
-                                </span>
-                                <span className="tie-score">{t.played ? t.away_score : "—"}</span>
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </section>
           ))}
 

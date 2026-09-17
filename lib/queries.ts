@@ -8,7 +8,8 @@ export type Settings = {
   points_draw: number;
 };
 
-export type Zone = { id: number; name: string; qualifiers_count: number; sort_order: number };
+/** Una zona pertenece a una fase (1, 2, ...). Los partidos heredan la fase de su zona. */
+export type Zone = { id: number; name: string; qualifiers_count: number; sort_order: number; phase: number };
 export type Team = { id: number; zone_id: number; name: string; logo_url: string | null };
 export type Player = { id: number; team_id: number; name: string; number: number | null; photo_url: string | null };
 
@@ -22,19 +23,6 @@ export type MatchRow = {
   played: boolean;
   matchday: number | null;
   scheduled_at: string | null;
-};
-
-export type TieRow = {
-  id: number;
-  round: number;
-  sort_order: number;
-  home_label: string | null;
-  away_label: string | null;
-  home_team_id: number | null;
-  away_team_id: number | null;
-  home_score: number | null;
-  away_score: number | null;
-  played: boolean;
 };
 
 /** Una fila del historial de campeones de ediciones anteriores. */
@@ -118,6 +106,46 @@ function optional<T>(query: Promise<unknown>, label: string): Promise<T[]> {
   });
 }
 
+type SqlClient = ReturnType<typeof db>;
+
+/**
+ * Zonas con su fase. Si la base todavía no tiene la columna `phase`
+ * (esquema sin actualizar en Neon), toma todo como Fase 1.
+ */
+async function loadZones(sql: SqlClient): Promise<Zone[]> {
+  try {
+    return (await sql`
+      SELECT id, name, qualifiers_count, sort_order, phase
+      FROM zones ORDER BY phase, sort_order, id`) as Zone[];
+  } catch (err) {
+    console.error("No se pudo leer zones.phase (¿falta correr db/schema.sql en Neon?):", err);
+    const rows = (await sql`
+      SELECT id, name, qualifiers_count, sort_order FROM zones ORDER BY sort_order, id`) as Omit<Zone, "phase">[];
+    return rows.map((z) => ({ ...z, phase: 1 }));
+  }
+}
+
+export type ZoneTeamRow = { zone_id: number; team_id: number; sort_order: number };
+
+/**
+ * Pertenencia equipo↔zona. Vive en `zone_teams` porque en Fase 2 los mismos
+ * equipos se reagrupan en zonas nuevas. Si la tabla todavía no existe, cae de
+ * vuelta a `teams.zone_id`.
+ */
+function membershipOf(zoneTeams: ZoneTeamRow[], teams: Team[]): Map<number, Team[]> {
+  const byId = new Map(teams.map((t) => [t.id, t]));
+  const byZone = new Map<number, Team[]>();
+  if (zoneTeams.length > 0) {
+    for (const zt of zoneTeams) {
+      const team = byId.get(zt.team_id);
+      if (team) (byZone.get(zt.zone_id) ?? byZone.set(zt.zone_id, []).get(zt.zone_id)!).push(team);
+    }
+  } else {
+    for (const t of teams) (byZone.get(t.zone_id) ?? byZone.set(t.zone_id, []).get(t.zone_id)!).push(t);
+  }
+  return byZone;
+}
+
 export type PublicZone = {
   zone: Zone;
   standings: StandingRow[];
@@ -128,7 +156,7 @@ export type PublicZone = {
 export type PublicData = {
   settings: Settings;
   zones: PublicZone[];
-  ties: TieRow[];
+  teams: Team[];
   teamsById: Record<number, Team>;
   playersByTeam: Record<number, Player[]>;
   champions: Champion[];
@@ -137,15 +165,15 @@ export type PublicData = {
 /** Trae todo lo necesario para la vista pública. */
 export async function getPublicData(): Promise<PublicData> {
   const sql = db();
-  const [settingsRows, zones, teams, matches, ties, players, champions] = (await Promise.all([
+  const [settingsRows, zones, teams, matches, players, champions, zoneTeams] = (await Promise.all([
     sql`SELECT tournament_name, subtitle, logo_url, points_win, points_draw FROM settings WHERE id = 1`,
-    sql`SELECT id, name, qualifiers_count, sort_order FROM zones ORDER BY sort_order, id`,
+    loadZones(sql),
     sql`SELECT id, zone_id, name, logo_url FROM teams ORDER BY sort_order, id`,
     sql`SELECT id, zone_id, home_team_id, away_team_id, home_score, away_score, played, matchday, scheduled_at FROM matches ORDER BY scheduled_at NULLS LAST, matchday NULLS LAST, id`,
-    sql`SELECT id, round, sort_order, home_label, away_label, home_team_id, away_team_id, home_score, away_score, played FROM playoff_ties ORDER BY round, sort_order, id`,
     sql`SELECT id, team_id, name, number, photo_url FROM players ORDER BY sort_order, id`,
     optional<Champion>(sql`SELECT id, season, champion, sort_order FROM champions ORDER BY sort_order, id`, "champions"),
-  ])) as [Settings[], Zone[], Team[], MatchRow[], TieRow[], Player[], Champion[]];
+    optional<ZoneTeamRow>(sql`SELECT zone_id, team_id, sort_order FROM zone_teams ORDER BY sort_order, team_id`, "zone_teams"),
+  ])) as [Settings[], Zone[], Team[], MatchRow[], Player[], Champion[], ZoneTeamRow[]];
 
   const settings = settingsRows[0] ?? DEFAULT_SETTINGS;
   const teamsById: Record<number, Team> = {};
@@ -154,45 +182,50 @@ export async function getPublicData(): Promise<PublicData> {
   const playersByTeam: Record<number, Player[]> = {};
   for (const p of players) (playersByTeam[p.team_id] ??= []).push(p);
 
+  const teamsByZone = membershipOf(zoneTeams, teams);
+
   const publicZones: PublicZone[] = zones.map((zone) => {
-    const zoneTeams = teams.filter((t) => t.zone_id === zone.id);
+    const zoneTeamList = teamsByZone.get(zone.id) ?? [];
     const zoneMatches = matches.filter((m) => m.zone_id === zone.id);
     return {
       zone,
-      standings: computeStandings(zoneTeams, zoneMatches, settings.points_win, settings.points_draw),
+      standings: computeStandings(zoneTeamList, zoneMatches, settings.points_win, settings.points_draw),
       matches: zoneMatches,
-      teams: zoneTeams,
+      teams: zoneTeamList,
     };
   });
 
-  return { settings, zones: publicZones, ties, teamsById, playersByTeam, champions };
+  return { settings, zones: publicZones, teams, teamsById, playersByTeam, champions };
 }
 
 export type AdminData = {
   settings: Settings;
   zones: Zone[];
   teams: Team[];
+  teamsByZone: Record<number, Team[]>;
   playersByTeam: Record<number, Player[]>;
   matches: MatchRow[];
-  ties: TieRow[];
   champions: Champion[];
 };
 
 /** Trae todo lo necesario para el panel de administración. */
 export async function getAdminData(): Promise<AdminData> {
   const sql = db();
-  const [settingsRows, zones, teams, players, matches, ties, champions] = (await Promise.all([
+  const [settingsRows, zones, teams, players, matches, champions, zoneTeams] = (await Promise.all([
     sql`SELECT tournament_name, subtitle, logo_url, points_win, points_draw FROM settings WHERE id = 1`,
-    sql`SELECT id, name, qualifiers_count, sort_order FROM zones ORDER BY sort_order, id`,
+    loadZones(sql),
     sql`SELECT id, zone_id, name, logo_url FROM teams ORDER BY sort_order, id`,
     sql`SELECT id, team_id, name, number, photo_url FROM players ORDER BY sort_order, id`,
     sql`SELECT id, zone_id, home_team_id, away_team_id, home_score, away_score, played, matchday, scheduled_at FROM matches ORDER BY scheduled_at NULLS LAST, matchday NULLS LAST, id`,
-    sql`SELECT id, round, sort_order, home_label, away_label, home_team_id, away_team_id, home_score, away_score, played FROM playoff_ties ORDER BY round, sort_order, id`,
     optional<Champion>(sql`SELECT id, season, champion, sort_order FROM champions ORDER BY sort_order, id`, "champions"),
-  ])) as [Settings[], Zone[], Team[], Player[], MatchRow[], TieRow[], Champion[]];
+    optional<ZoneTeamRow>(sql`SELECT zone_id, team_id, sort_order FROM zone_teams ORDER BY sort_order, team_id`, "zone_teams"),
+  ])) as [Settings[], Zone[], Team[], Player[], MatchRow[], Champion[], ZoneTeamRow[]];
 
   const playersByTeam: Record<number, Player[]> = {};
   for (const p of players) (playersByTeam[p.team_id] ??= []).push(p);
 
-  return { settings: settingsRows[0] ?? DEFAULT_SETTINGS, zones, teams, playersByTeam, matches, ties, champions };
+  const teamsByZone: Record<number, Team[]> = {};
+  for (const [zoneId, list] of membershipOf(zoneTeams, teams)) teamsByZone[zoneId] = list;
+
+  return { settings: settingsRows[0] ?? DEFAULT_SETTINGS, zones, teams, teamsByZone, playersByTeam, matches, champions };
 }

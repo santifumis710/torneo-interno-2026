@@ -12,7 +12,7 @@ const EMPTY: PublicData = {
     points_draw: 1,
   },
   zones: [],
-  ties: [],
+  teams: [],
   teamsById: {},
   playersByTeam: {},
   champions: [],

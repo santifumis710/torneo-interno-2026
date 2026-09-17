@@ -1,30 +1,28 @@
 # Torneo Interno 2026 — UTN Santa Fe
 
 Página web del torneo interno de la UTN Facultad Regional Santa Fe. Muestra las **posiciones**
-por zona (calculadas solas, con clasificados a playoffs resaltados en dorado), los **equipos**
-con sus planteles, el **fixture** y el **cuadro de playoffs**. Toda la información la carga el
-profesor desde un **panel de administración** — no hace falta tocar código.
+por zona de cada **fase** (calculadas solas, con los clasificados resaltados en dorado), los
+**equipos** con sus planteles y el **fixture**. Toda la información la carga el profesor desde
+un **panel de administración** — no hace falta tocar código.
 
 🔗 **Producción:** https://utn-torneo-interno-2026.vercel.app · **Admin:** `/admin`
 
 ## Funcionalidades
 
 **Web pública** (`/`), en pestañas:
-- **Posiciones** — tabla por zona (PJ, G, E, P, GF, GC, DIF, Pts), ordenada por Pts → DIF → GF, con los clasificados en dorado.
-- **Equipos** — planteles por zona, cada equipo con su logo y jugadores (con foto).
-- **Fixture** — partidos con resultados (o "VS" si están pendientes), agrupados **por zona, por fecha o por día/hora**, y con **filtro por equipo**: elegís un equipo y ves solo sus partidos, ordenados por número de fecha. Las **fechas libres** (zonas de equipos impares) se deducen solas y aparecen como una fila más.
-- **Playoffs** — cuadro Cuartos → Semifinales → Final.
+- **Una pestaña por fase** (Fase 2, Fase 1, …, de la más nueva a la más vieja) — tabla de cada zona de esa fase (PJ, G, E, P, GF, GC, DIF, Pts), ordenada por Pts → DIF → GF, con los clasificados en dorado. Las pestañas salen de las fases que existen en la base; la que se abre primero es la más nueva.
+- **Equipos** — todos los equipos en una grilla, cada uno con su logo y su plantel (con foto).
+- **Fixture** — partidos con resultados (o "VS" si están pendientes). Primero se **elige la fase** (los números de fecha se repiten entre fases) y dentro de ella se agrupa **por zona, por fecha o por día/hora**. Con el **filtro por equipo** no hace falta elegir fase: se ven **todas**, una debajo de la otra, ordenadas por número de fecha. Las **fechas libres** (zonas de equipos impares) se deducen solas y aparecen como una fila más.
 - **Historial** — tabla de campeones de las ediciones anteriores.
 - Responsive (celular y computadora) y tema claro/oscuro.
 
 **Panel `/admin`** (protegido por contraseña) — el profesor gestiona todo:
-- **Torneo:** nombre, subtítulo, puntaje (victoria/empate) y logo (se respeta tal cual, sin quitafondo).
-- **Zonas:** crear/renombrar/borrar y cuántos equipos clasifican (sin nombres fijos).
-- **Equipos:** crear/mover/borrar y subir logo (se normaliza y se le quita el fondo plano).
-- **Jugadores:** alta/edición/borrado por equipo, con **foto** opcional.
-- **Partidos:** cargar resultados, número de jornada y **fecha/hora** → la tabla y el fixture se recalculan solos.
-- **Playoffs:** definir cruces (ej. 1°A vs 4°B), asignar equipos y cargar resultados.
+Está dividido en secciones plegables; solo **Partidos y resultados** viene abierta, que es lo que se usa semana a semana.
+- **Partidos y resultados:** cargar partidos y resultados, número de jornada y **fecha/hora** → la tabla y el fixture se recalculan solos. Arriba hay un selector de **fase**, que arranca en la más nueva.
+- **Zonas y fases:** crear/renombrar/borrar zonas, en qué fase está cada una, cuántos clasifican, y qué equipos juegan en cada zona (un mismo equipo puede estar en una zona por fase; sacarlo de una zona no lo borra).
+- **Equipos y jugadores:** nombre y logo de cada equipo (se normaliza y se le quita el fondo plano), y alta/edición/borrado de jugadores con **foto** opcional.
 - **Historial de campeones:** agregar, editar o borrar las filas de años anteriores.
+- **Torneo:** nombre, subtítulo, puntaje (victoria/empate) y logo (se respeta tal cual, sin quitafondo).
 
 Al reemplazar, quitar o borrar una imagen (logos y fotos), el archivo anterior se elimina del Vercel Blob para no dejar huérfanos.
 
@@ -65,7 +63,9 @@ El esquema está en [`db/schema.sql`](./db/schema.sql) (idempotente). Para crear
 - **Recomendado:** pegar el contenido de `db/schema.sql` en el **SQL Editor de Neon** y ejecutar.
 - **Alternativa:** con `DATABASE_URL` en `.env.local`, correr `npm run db:setup`.
 
-Tablas: `settings`, `zones`, `teams`, `players`, `matches`, `playoff_ties`.
+Tablas: `settings`, `zones` (con `phase`), `teams`, `zone_teams` (qué equipos juegan en cada zona), `players`, `matches`, `champions`.
+`playoff_ties` sigue existiendo pero no se usa.
+Para crear las zonas de Fase 2 con sus equipos de una, está `db/fase2.sql` (también se puede hacer desde `/admin`).
 La tabla de posiciones **no se almacena**: se calcula desde `matches` (ver `lib/queries.ts`).
 
 ## Documentación del proyecto
@@ -79,5 +79,5 @@ La tabla de posiciones **no se almacena**: se calcula desde `matches` (ver `lib/
 
 ## Posibles mejoras a futuro
 
-3er puesto / más rondas de playoffs · tabla de goleadores ·
+Instancia final / playoffs · tabla de goleadores ·
 ordenar equipos y jugadores manualmente.
