@@ -71,7 +71,7 @@ function ZoneTable({ name, qualifiers, standings }: { name: string; qualifiers: 
     <div className="card">
       <div className="card-head">
         <h2>{name}</h2>
-        {standings.length > 0 && <span className="badge">Clasifican {qualifiers}</span>}
+        {standings.length > 0 && qualifiers > 0 && <span className="badge">Clasifican {qualifiers}</span>}
       </div>
       {standings.length === 0 ? (
         <div className="empty">Todavía no hay equipos en esta zona.</div>
