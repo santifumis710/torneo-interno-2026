@@ -38,6 +38,23 @@ algo viejo. Después, por cada zona de esa fase:
 
 > Cada fase tiene sus propias fechas: hay una **Fecha 1** en Fase 1 y otra en Fase 2, y no se mezclan.
 
+### Partidos entre zonas (interzonal)
+
+Abajo de las zonas de la fase hay un bloque **Interzonal**. Es para los partidos entre equipos
+de **zonas distintas** — por ejemplo las dos zonas de 3 de la Fase 2, que se cruzan entre sí.
+
+- Los desplegables de local y visitante muestran **todos los equipos de la fase**, agrupados
+  por zona: elegí uno de cada zona. Fecha, hora y goles funcionan igual que siempre.
+- **Cargalo una sola vez y siempre acá**, no adentro de una zona. Dentro de cada zona quedan
+  únicamente los partidos entre equipos de esa zona.
+- Cada equipo suma **en la tabla de su propia zona**: las dos zonas siguen teniendo su tabla
+  aparte, con sus 3 equipos. El partido le suma PJ, puntos y goles a cada uno en la suya.
+- En la web pública los cruces salen juntos en una tarjeta **Interzonal** cuando el fixture
+  está agrupado por zona, y mezclados con el resto cuando lo agrupás por fecha o por día.
+
+> En las fechas donde hay interzonales la web **no marca ningún equipo como "Libre"**: en un
+> cruce los equipos se reparten de cualquier manera y no habría cómo deducirlo sin equivocarse.
+
 ## 2. Zonas y fases
 
 En **Zonas y fases** las zonas aparecen agrupadas por fase. En cada zona podés:
@@ -111,11 +128,12 @@ que ya cargaste.
 Si una zona tiene un número impar de equipos, cada fecha deja uno **libre**. No hay que
 cargarlo: la web se da cuenta sola. La regla es simple —
 
-> Cuando la fecha tiene **todos sus partidos cargados** (con 7 equipos, los 3 partidos) y
-> hay un equipo que no aparece en ninguno, ese equipo figura **Libre** en esa fecha.
+> Cuando la fecha tiene **todos sus partidos cargados** (con 7 equipos, juegan 6) y queda
+> un equipo que no aparece en ninguno, ese equipo figura **Libre** en esa fecha.
 
 Mientras te falte cargar algún partido de la fecha, **no dice nada**, justamente para no
-marcar como "libre" a un equipo cuyo partido todavía no cargaste. Se ve en el filtro por
+marcar como "libre" a un equipo cuyo partido todavía no cargaste. Y en una fecha con
+**interzonales** tampoco dice nada, por la misma razón. Se ve en el filtro por
 equipo (como una fila más) y al pie de cada fecha cuando agrupás **Por fecha**.
 
 ## Preguntas frecuentes

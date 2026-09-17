@@ -55,6 +55,10 @@ const DEFAULT_SETTINGS: Settings = {
  * (el que llega en `teams`, que el profe acomoda desde el admin). Antes desempataba por
  * nombre alfabético, que no lo decidía nadie: así una zona recién creada, con todos en 0,
  * se ve en el orden que el profe quiso.
+ *
+ * **Partidos interzonales:** si solo uno de los dos equipos es de la zona, el partido
+ * suma igual, pero nada más que para ese equipo. Así dos zonas chicas pueden cruzarse
+ * entre sí y cada una conserva su propia tabla.
  */
 export function computeStandings(
   teams: Team[],
@@ -69,33 +73,30 @@ export function computeStandings(
     position.set(team.id, i);
   }
 
+  /** Suma un partido a un solo equipo de la tabla (el rival puede ser de otra zona). */
+  const add = (row: StandingRow, own: number, rival: number) => {
+    row.pj++;
+    row.gf += own;
+    row.gc += rival;
+    if (own > rival) {
+      row.g++;
+      row.pts += pointsWin;
+    } else if (own < rival) {
+      row.p++;
+    } else {
+      row.e++;
+      row.pts += pointsDraw;
+    }
+  };
+
   for (const m of matches) {
     if (!m.played || m.home_score === null || m.away_score === null) continue;
     const home = table.get(m.home_team_id);
     const away = table.get(m.away_team_id);
-    if (!home || !away) continue;
+    if (!home && !away) continue; // partido de otra zona: no toca esta tabla
 
-    home.pj++;
-    away.pj++;
-    home.gf += m.home_score;
-    home.gc += m.away_score;
-    away.gf += m.away_score;
-    away.gc += m.home_score;
-
-    if (m.home_score > m.away_score) {
-      home.g++;
-      home.pts += pointsWin;
-      away.p++;
-    } else if (m.home_score < m.away_score) {
-      away.g++;
-      away.pts += pointsWin;
-      home.p++;
-    } else {
-      home.e++;
-      away.e++;
-      home.pts += pointsDraw;
-      away.pts += pointsDraw;
-    }
+    if (home) add(home, m.home_score, m.away_score);
+    if (away) add(away, m.away_score, m.home_score);
   }
 
   const rows = [...table.values()];
@@ -164,7 +165,14 @@ function membershipOf(zoneTeams: ZoneTeamRow[], teams: Team[]): Map<number, Team
 export type PublicZone = {
   zone: Zone;
   standings: StandingRow[];
+  /** Partidos cargados en esta zona (los que se muestran en el fixture). */
   matches: MatchRow[];
+  /**
+   * Partidos de la fase en los que juega algún equipo de la zona, estén cargados
+   * en esta zona o en otra (interzonales). Es el set con el que se calculan la
+   * tabla y las fechas libres.
+   */
+  tableMatches: MatchRow[];
   teams: Team[];
 };
 
@@ -199,13 +207,26 @@ export async function getPublicData(): Promise<PublicData> {
 
   const teamsByZone = membershipOf(zoneTeams, teams);
 
+  // La fase de un partido es la de su zona: `matches` no tiene columna propia.
+  const phaseOfZone = new Map(zones.map((z) => [z.id, z.phase]));
+
   const publicZones: PublicZone[] = zones.map((zone) => {
     const zoneTeamList = teamsByZone.get(zone.id) ?? [];
     const zoneMatches = matches.filter((m) => m.zone_id === zone.id);
+    // Para la tabla no alcanza con los partidos cargados en la zona: un interzonal
+    // vive en la zona del local y tiene que sumarle igual al visitante en la suya.
+    // El filtro por fase es obligatorio: el mismo equipo juega en una zona por fase.
+    const ids = new Set(zoneTeamList.map((t) => t.id));
+    const tableMatches = matches.filter(
+      (m) =>
+        phaseOfZone.get(m.zone_id) === zone.phase &&
+        (ids.has(m.home_team_id) || ids.has(m.away_team_id)),
+    );
     return {
       zone,
-      standings: computeStandings(zoneTeamList, zoneMatches, settings.points_win, settings.points_draw),
+      standings: computeStandings(zoneTeamList, tableMatches, settings.points_win, settings.points_draw),
       matches: zoneMatches,
+      tableMatches,
       teams: zoneTeamList,
     };
   });

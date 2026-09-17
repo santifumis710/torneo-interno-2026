@@ -226,11 +226,28 @@ export default function PublicView({ data }: { data: PublicData }) {
   type ByeNote = { teamName: string; zoneName: string };
   type FixtureGroup = { key: string; title: string; items: FixtureItem[]; byes?: ByeNote[] };
 
-  // Fechas libres deducidas de los partidos cargados, por zona.
-  const byesByZone = new Map(zones.map((z) => [z.zone.id, computeByes(z.teams, z.matches)]));
+  // Fechas libres deducidas de los partidos cargados, por zona. Van los de la tabla
+  // (incluyen los interzonales) para que una fecha de cruces no invente un libre.
+  const byesByZone = new Map(zones.map((z) => [z.zone.id, computeByes(z.teams, z.tableMatches)]));
+
+  // Un partido es interzonal cuando sus dos equipos son de zonas distintas de la
+  // misma fase. No hace falta ninguna marca en la base: se deduce de los equipos.
+  const INTERZONAL = "Interzonal";
+  const phaseOfZoneId = new Map(zones.map((z) => [z.zone.id, z.zone.phase]));
+  const zoneOfTeam = new Map<string, number>();
+  for (const z of zones) for (const t of z.teams) zoneOfTeam.set(`${z.zone.phase}:${t.id}`, z.zone.id);
+  const isInterzonal = (m: MatchRow) => {
+    const phase = phaseOfZoneId.get(m.zone_id);
+    if (phase === undefined) return false;
+    const home = zoneOfTeam.get(`${phase}:${m.home_team_id}`);
+    const away = zoneOfTeam.get(`${phase}:${m.away_team_id}`);
+    return home !== undefined && away !== undefined && home !== away;
+  };
 
   const itemsOf = (zs: PublicZone[]): FixtureItem[] =>
-    zs.flatMap((z) => z.matches.map((m) => ({ kind: "match" as const, m, zoneName: z.zone.name })));
+    zs.flatMap((z) =>
+      z.matches.map((m) => ({ kind: "match" as const, m, zoneName: isInterzonal(m) ? INTERZONAL : z.zone.name })),
+    );
   const timeOf = (it: FixtureItem) =>
     it.kind === "match" && it.m.scheduled_at ? new Date(it.m.scheduled_at).getTime() : Infinity;
   const mdOf = (it: FixtureItem) => (it.kind === "bye" ? it.matchday : it.m.matchday ?? Infinity);
@@ -238,13 +255,23 @@ export default function PublicView({ data }: { data: PublicData }) {
   /** Agrupa los partidos de las zonas de una fase según el modo elegido. */
   function groupsFor(zs: PublicZone[], sort: FixtureSort, prefix: string): FixtureGroup[] {
     if (sort === "zona") {
-      return zs
-        .filter((z) => z.matches.length > 0)
+      const groups: FixtureGroup[] = zs
         .map((z) => ({
           key: `${prefix}z${z.zone.id}`,
           title: z.zone.name,
-          items: z.matches.map((m) => ({ kind: "match" as const, m, zoneName: z.zone.name })),
-        }));
+          items: z.matches
+            .filter((m) => !isInterzonal(m))
+            .map((m) => ({ kind: "match" as const, m, zoneName: z.zone.name })),
+        }))
+        .filter((g) => g.items.length > 0);
+      // El cruce se carga en la zona del local pero no es de ninguna de las dos:
+      // sale de la tarjeta de su zona y va a una propia, al pie de la fase.
+      const inter: FixtureItem[] = zs
+        .flatMap((z) => z.matches.filter(isInterzonal))
+        .map((m) => ({ kind: "match" as const, m, zoneName: INTERZONAL }))
+        .sort((x, y) => mdOf(x) - mdOf(y) || timeOf(x) - timeOf(y));
+      if (inter.length > 0) groups.push({ key: `${prefix}inter`, title: INTERZONAL, items: inter });
+      return groups;
     }
 
     const all = itemsOf(zs);

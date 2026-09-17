@@ -322,6 +322,40 @@ export async function createMatch(formData: FormData) {
   refresh();
 }
 
+/**
+ * Partido interzonal: los dos equipos son de zonas distintas de la misma fase.
+ * No hay marca en la base — se deduce de los equipos —, así que el partido se
+ * guarda en la zona del local (que es de donde hereda la fase) y la tabla de
+ * cada zona lo suma para el equipo que le pertenece.
+ */
+export async function createInterzonalMatch(formData: FormData) {
+  await requireAuth();
+  const phase = Number(formData.get("phase"));
+  const homeId = Number(formData.get("home_team_id"));
+  const awayId = Number(formData.get("away_team_id"));
+  const mdRaw = String(formData.get("matchday") ?? "").trim();
+  const matchday = mdRaw === "" ? null : Number(mdRaw);
+  const scheduledAt = parseScheduledAt(String(formData.get("scheduled_at") ?? ""));
+  if (!phase || !homeId || !awayId || homeId === awayId) return;
+
+  const sql = db();
+  // El INSERT ... SELECT es la validación: no inserta nada si alguno de los dos
+  // equipos no juega en esa fase.
+  await sql`
+    INSERT INTO matches (zone_id, home_team_id, away_team_id, matchday, scheduled_at, played)
+    SELECT z.id, ${homeId}, ${awayId}, ${matchday}, ${scheduledAt}, FALSE
+    FROM zones z
+    JOIN zone_teams zt ON zt.zone_id = z.id AND zt.team_id = ${homeId}
+    WHERE z.phase = ${phase}
+      AND EXISTS (
+        SELECT 1 FROM zone_teams zt2
+        JOIN zones z2 ON z2.id = zt2.zone_id
+        WHERE z2.phase = ${phase} AND zt2.team_id = ${awayId}
+      )
+    LIMIT 1`;
+  refresh();
+}
+
 export async function updateMatch(formData: FormData) {
   await requireAuth();
   const id = Number(formData.get("id"));

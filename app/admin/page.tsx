@@ -1,7 +1,7 @@
 import "../globals.css";
 import "./admin.css";
 import { requireAuth } from "@/lib/auth";
-import { getAdminData } from "@/lib/queries";
+import { getAdminData, type MatchRow } from "@/lib/queries";
 import {
   updateSettings,
   createZone,
@@ -19,6 +19,7 @@ import {
   uploadPlayerPhoto,
   removePlayerPhoto,
   createMatch,
+  createInterzonalMatch,
   updateMatch,
   deleteMatch,
   uploadTeamLogo,
@@ -47,6 +48,29 @@ function toLocalInput(iso: string | null): string {
   return s.replace(" ", "T");
 }
 
+/** Fila de carga/edición de un partido. Se usa en cada zona y en el interzonal. */
+function MatchLine({ m, teamName }: { m: MatchRow; teamName: (id: number) => string }) {
+  return (
+    <div className="match-line">
+      <form action={updateMatch} className="match-edit">
+        <input type="hidden" name="id" value={m.id} />
+        <span className="mt-name" style={{ flex: 1, textAlign: "right" }}>{teamName(m.home_team_id)}</span>
+        <input className="mscore" name="home_score" type="number" min={0} defaultValue={m.home_score ?? ""} placeholder="-" />
+        <span className="mvs">:</span>
+        <input className="mscore" name="away_score" type="number" min={0} defaultValue={m.away_score ?? ""} placeholder="-" />
+        <span className="mt-name" style={{ flex: 1 }}>{teamName(m.away_team_id)}</span>
+        <input className="mmd" name="matchday" type="number" min={1} defaultValue={m.matchday ?? ""} placeholder="Fecha nº" />
+        <input className="mdt" name="scheduled_at" type="datetime-local" defaultValue={toLocalInput(m.scheduled_at)} />
+        <button className="btn btn-sec btn-xs" type="submit">Guardar</button>
+      </form>
+      <form action={deleteMatch}>
+        <input type="hidden" name="id" value={m.id} />
+        <button className="btn-danger btn-xs" type="submit">✕</button>
+      </form>
+    </div>
+  );
+}
+
 export default async function AdminPage({
   searchParams,
 }: {
@@ -65,6 +89,18 @@ export default async function AdminPage({
   const askedPhase = Number((await searchParams).fase);
   const phase = phases.includes(askedPhase) ? askedPhase : latestPhase;
   const phaseZones = zones.filter((z) => z.phase === phase);
+
+  // Un partido es interzonal cuando sus dos equipos son de zonas distintas de la
+  // misma fase. No hay marca en la base: se deduce de los equipos.
+  const zoneOfTeam = new Map<number, number>();
+  for (const z of phaseZones) for (const t of teamsByZone[z.id] ?? []) zoneOfTeam.set(t.id, z.id);
+  const phaseZoneIds = new Set(phaseZones.map((z) => z.id));
+  const isInterzonal = (m: MatchRow) => {
+    const home = zoneOfTeam.get(m.home_team_id);
+    const away = zoneOfTeam.get(m.away_team_id);
+    return home !== undefined && away !== undefined && home !== away;
+  };
+  const interzonalMatches = matches.filter((m) => phaseZoneIds.has(m.zone_id) && isInterzonal(m));
 
   /** Zonas (de cualquier fase) en las que juega un equipo — solo informativo. */
   const zonesOf = (teamId: number) =>
@@ -112,7 +148,8 @@ export default async function AdminPage({
 
         {phaseZones.map((zone) => {
           const zoneTeams = teamsByZone[zone.id] ?? [];
-          const zoneMatches = matches.filter((m) => m.zone_id === zone.id);
+          // Los cruces se cargan y se editan abajo, en «Interzonal».
+          const zoneMatches = matches.filter((m) => m.zone_id === zone.id && !isInterzonal(m));
           return (
             <div className="zone-sub" key={zone.id}>
               <h3>{zone.name}</h3>
@@ -144,29 +181,56 @@ export default async function AdminPage({
 
               {zoneMatches.length === 0 && <p className="hint">Sin partidos en esta zona.</p>}
               {zoneMatches.map((m) => (
-                <div className="match-line" key={m.id}>
-                  <form action={updateMatch} className="match-edit">
-                    <input type="hidden" name="id" value={m.id} />
-                    <span className="mt-name" style={{ flex: 1, textAlign: "right" }}>
-                      {teamName(m.home_team_id)}
-                    </span>
-                    <input className="mscore" name="home_score" type="number" min={0} defaultValue={m.home_score ?? ""} placeholder="-" />
-                    <span className="mvs">:</span>
-                    <input className="mscore" name="away_score" type="number" min={0} defaultValue={m.away_score ?? ""} placeholder="-" />
-                    <span className="mt-name" style={{ flex: 1 }}>{teamName(m.away_team_id)}</span>
-                    <input className="mmd" name="matchday" type="number" min={1} defaultValue={m.matchday ?? ""} placeholder="Fecha nº" />
-                    <input className="mdt" name="scheduled_at" type="datetime-local" defaultValue={toLocalInput(m.scheduled_at)} />
-                    <button className="btn btn-sec btn-xs" type="submit">Guardar</button>
-                  </form>
-                  <form action={deleteMatch}>
-                    <input type="hidden" name="id" value={m.id} />
-                    <button className="btn-danger btn-xs" type="submit">✕</button>
-                  </form>
-                </div>
+                <MatchLine key={m.id} m={m} teamName={teamName} />
               ))}
             </div>
           );
         })}
+
+        {/* Cruces entre zonas de esta fase. Viven acá y no adentro de una zona,
+            así cada partido se carga y se edita en un solo lugar. */}
+        {phaseZones.length > 1 && (
+          <div className="zone-sub">
+            <h3>Interzonal</h3>
+            <p className="hint">
+              Partidos entre equipos de zonas distintas de {phaseLabel(phase).toLowerCase()}. Cada uno le suma
+              a su equipo en la tabla de su zona, y en el fixture salen juntos, aparte de las zonas.
+            </p>
+
+            <form action={createInterzonalMatch} className="match-add">
+              <input type="hidden" name="phase" value={phase} />
+              <select name="home_team_id" defaultValue="" required>
+                <option value="" disabled>Local</option>
+                {phaseZones.map((z) => (
+                  <optgroup key={z.id} label={z.name}>
+                    {(teamsByZone[z.id] ?? []).map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <span className="mvs">vs</span>
+              <select name="away_team_id" defaultValue="" required>
+                <option value="" disabled>Visitante</option>
+                {phaseZones.map((z) => (
+                  <optgroup key={z.id} label={z.name}>
+                    {(teamsByZone[z.id] ?? []).map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <input className="mmd" name="matchday" type="number" min={1} placeholder="Fecha nº" />
+              <input className="mdt" name="scheduled_at" type="datetime-local" />
+              <button className="btn btn-xs" type="submit">Agregar partido</button>
+            </form>
+
+            {interzonalMatches.length === 0 && <p className="hint">Sin partidos interzonales en esta fase.</p>}
+            {interzonalMatches.map((m) => (
+              <MatchLine key={m.id} m={m} teamName={teamName} />
+            ))}
+          </div>
+        )}
       </details>
 
       {/* ---------- 2. Zonas y fases ---------- */}
